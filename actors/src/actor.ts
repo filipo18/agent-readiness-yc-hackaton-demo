@@ -81,7 +81,7 @@ export class Shopper extends Actor<Watcher, Incoming, Outgoing> {
     void this.relayToken
     this.view = { ...this.view, status: "running", step: "Opening the store" }
     this.alarm.set(Date.now() + 90_000)
-    const mode = process.env.SHOP_MODE === "live" ? "live" : "fixture"
+    const mode = this.storeUrl || process.env.SHOP_MODE === "live" ? "live" : "fixture"
     const fixture = process.env.SHOP_FIXTURE === "after" ? "after" : "before"
     const snapshot = await loadSnapshot({
       mode,
