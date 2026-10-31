@@ -123,23 +123,19 @@ export function FixerBoard() {
   ].filter((line): line is string => Boolean(line))
 
   return (
-    <main className="min-h-screen bg-[#F7F7F4] px-6 py-8 text-[#26251E]">
-      <div className="mx-auto w-full max-w-[1120px]">
-        <header className="mb-8 flex items-center justify-between gap-4">
-          <div className="flex items-baseline gap-4">
-            <a href="/" className="text-[22px] font-semibold tracking-[-0.04em]">
-              tiebreaks.
-            </a>
-            <a href="/" className="text-[13px] text-[#8A8984] hover:text-[#26251E]">Audit your store</a>
-            <a href="/fix" aria-current="page" className="text-[13px] text-[#26251E]">Fix with agent</a>
-          </div>
-          <span className="rounded-full border border-[#E6E5E0] px-3 py-1 text-[11px] tracking-[0.08em] text-[#8A8984]">
-            {dry ? "DRY RUN · NO CREDENTIALS" : "SHOPIFY ADMIN"}
-          </span>
-        </header>
+    <main className="min-h-screen bg-[#F7F7F4] text-[#26251E]">
+      <nav className="border-b border-[#E6E5E0]">
+        <div className="mx-auto flex h-14 max-w-[1280px] items-center gap-6 px-6">
+          <a href="/" className="text-[18px] font-semibold tracking-[-0.03em]">tiebreaks.</a>
+          <a href="/" className="text-[13px] text-[#8A8984] hover:text-[#26251E]">Audit your store</a>
+          <a href="/fix" aria-current="page" className="text-[13px] text-[#26251E]">Fix with agent</a>
+          <span className="ml-auto rounded-[4px] border border-[#E6E5E0] px-2 py-1 text-[10px] uppercase tracking-[0.08em] text-[#8A8984]">{dry ? "DRY RUN · NO CREDENTIALS" : "SHOPIFY ADMIN"}</span>
+        </div>
+      </nav>
+      <div className="mx-auto w-full max-w-[1280px] px-6 pt-8 pb-16">
 
         <div className="grid items-start gap-6 lg:grid-cols-[280px_1fr]">
-          <aside className="flex min-h-[520px] flex-col rounded-2xl border border-[#E6E5E0] bg-white p-5">
+          <aside className="flex min-h-[520px] flex-col rounded-2xl border border-[#E6E5E0] bg-white p-6">
             <div className="mb-4 flex size-10 items-center justify-center rounded-xl bg-[#F3F2EE] text-[#1F7A6A]">
               {applied ? <Check on /> : <span className="text-[18px]">✦</span>}
             </div>
@@ -147,12 +143,12 @@ export function FixerBoard() {
             <p className="mt-1 text-[13px] text-[#8A8984]">
               {dry ? "No admin credentials · dry run will not write" : "Editing the Shopify admin catalog"}
             </p>
-            <div className="mt-5 rounded-lg bg-[#F3F2EE] px-3 py-3 text-[14px] leading-snug text-[#3F3E38]">
+            <div className="mt-6 rounded-lg bg-[#F3F2EE] px-3 py-3 text-[14px] leading-snug text-[#3F3E38]">
               {applied
                 ? "The offer is stronger. The details are easier to compare."
                 : "Improve the offer, make the policies easy to find, and clarify the product data."}
             </div>
-            <ul className="mt-5 space-y-3 text-[14px]">
+            <ul className="mt-6 space-y-3 text-[14px]">
               {applied
                 ? view?.proposals
                     .filter((item) => item.status === "applied")
@@ -219,7 +215,7 @@ export function FixerBoard() {
                 />
               ) : (
                 <div className="px-6 py-6">
-                  <div className="mb-5 flex items-start justify-between gap-4">
+                  <div className="mb-6 flex items-start justify-between gap-4">
                     <h3 className="text-[26px] tracking-[-0.03em]">Improve your product page</h3>
                     <span className="rounded-full bg-[#E7EEF2] px-2.5 py-1 text-[12px] text-[#5C6B73]">Draft changes</span>
                   </div>
@@ -258,7 +254,7 @@ export function FixerBoard() {
                       type="button"
                       disabled={busy || !view || !view.proposals.some((item) => item.writes && item.approved && item.status !== "applied")}
                       onClick={() => view && void run({ action: "apply", sessionId: view.sessionId }, "page")}
-                      className="h-11 rounded-lg bg-[#26251E] px-5 text-[14px] text-[#F7F7F4] disabled:opacity-40"
+                      className="h-10 rounded-lg bg-[#26251E] px-5 text-[14px] text-[#F7F7F4] disabled:opacity-40"
                     >
                       {busy ? "Applying…" : dry ? "Apply dry run" : "Apply"}
                     </button>
@@ -278,7 +274,7 @@ export function FixerBoard() {
                   type="button"
                   disabled={busy || !view}
                   onClick={() => view && void run({ action: "apply", sessionId: view.sessionId }, "page")}
-                  className="h-11 rounded-lg bg-[#26251E] px-5 text-[14px] text-[#F7F7F4] disabled:opacity-40"
+                  className="h-10 rounded-lg bg-[#26251E] px-5 text-[14px] text-[#F7F7F4] disabled:opacity-40"
                 >
                   {busy ? "Applying…" : dry ? "Apply dry run" : "Apply"}
                 </button>
@@ -288,7 +284,7 @@ export function FixerBoard() {
           </section>
         </div>
 
-        <section className="mt-16 grid gap-12 md:grid-cols-2">
+        <section className="mt-8 grid gap-8 md:grid-cols-2">
           <div>
             <h3 className="text-[18px] tracking-[-0.02em]">Why zappos.com won</h3>
             <ul className="mt-4 border-t border-[#E6E5E0] text-[14px] text-[#3F3E38]">
@@ -322,7 +318,7 @@ export function FixerBoard() {
           </div>
         </section>
 
-        <section className="mt-12">
+        <section className="mt-8">
           <h3 className="text-[13px] text-[#8A8984]">#floor</h3>
           <div className="mt-2 max-h-40 overflow-y-auto font-mono text-[12px] leading-relaxed text-[#3F3E38]">
             {(view?.floor ?? []).map((line, index) => (
@@ -415,7 +411,7 @@ function ProductPage({
               ))}
             </div>
           ) : null}
-          <div className="mt-4 grid h-11 place-items-center rounded-md bg-[#1C3A2A] text-[14px] text-white">Add to bag</div>
+          <div className="mt-4 grid h-10 place-items-center rounded-md bg-[#1C3A2A] text-[14px] text-white">Add to bag</div>
           <ul className="mt-4 space-y-1.5 text-[13px]">
             {lines.map((line) => (
               <li key={line} className="flex gap-2">

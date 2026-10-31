@@ -170,23 +170,22 @@ export function AuditBoard() {
   return (
     <>
     <nav className="border-b border-[#E6E5E0]">
-      <div className="mx-auto flex h-14 max-w-[880px] items-center gap-6 px-6">
+      <div className="mx-auto flex h-14 max-w-[1280px] items-center gap-6 px-6">
         <span className="text-[18px] font-semibold tracking-[-0.03em]">tiebreaks.</span>
         <a href="/" aria-current="page" className="text-[13px] text-[#26251E]">Audit your store</a>
         <a href="/fix" className="text-[13px] text-[#8A8984] hover:text-[#26251E]">Fix with agent</a>
         <span className="ml-auto rounded-[4px] border border-[#E6E5E0] px-2 py-1 text-[10px] uppercase tracking-[0.08em] text-[#8A8984]">Five agent shoppers</span>
       </div>
     </nav>
-    <main className="mx-auto w-full max-w-[880px] px-6 pt-20 pb-32">
+    <main className="mx-auto w-full max-w-[1280px] px-6 pt-6 pb-16">
       <header>
         <Eyebrow>Agent readiness</Eyebrow>
-        <h1 className="max-w-[640px] text-[28px] leading-[1.2] tracking-[-0.02em]">
+        <h1 className="text-[24px] leading-[1.25] tracking-[-0.02em]">
           Can AI agents buy from your store? <span className="text-[#8A8984]">Five shoppers try. The rubric scores.</span>
         </h1>
       </header>
 
-      <section className="mt-16">
-        <Eyebrow>Store</Eyebrow>
+      <section className="mt-4">
         <form
           className="flex flex-col gap-2 sm:flex-row sm:items-center"
           onSubmit={(event) => {
@@ -219,7 +218,7 @@ export function AuditBoard() {
             {running ? "Running…" : "Run audit →"}
           </button>
         </form>
-        <p className="mt-3 text-[13px] text-[#8A8984]">
+        <p className="mt-3 text-[12px] text-[#8A8984]">
           Or replay a recording:{" "}
           <button disabled={running} onClick={() => void run({ mode: "fixture", fixture: "before" })} className="text-[#26251E] underline decoration-[#E6E5E0] underline-offset-4 hover:decoration-[#26251E] disabled:opacity-40">
             recorded store
@@ -232,7 +231,7 @@ export function AuditBoard() {
       </section>
 
       {error ? (
-        <section className="mt-10 rounded-[8px] border border-[#E6E5E0] bg-white px-5 py-4 text-[14px]">
+        <section className="mt-4 rounded-[8px] border border-[#E6E5E0] bg-white px-5 py-4 text-[14px]">
           <p>{error}</p>
           <button onClick={() => void run({ mode: "fixture", fixture: "before" })} className="mt-2 text-[13px] text-[#F54E00]">
             Replay the recorded store instead →
@@ -240,14 +239,16 @@ export function AuditBoard() {
         </section>
       ) : null}
 
-      <section className="mt-20 overflow-hidden rounded-[8px] border border-[#E6E5E0] bg-white" aria-live="polite">
+      <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+      <div className="min-w-0">
+      <section className="overflow-hidden rounded-[8px] border border-[#E6E5E0] bg-white" aria-live="polite">
         <div className="border-b border-[#E6E5E0] bg-[#F0EFEB] px-5 py-2 font-mono text-[11px] text-[#8A8984]">
           {report ? `${report.storeUrl.replace(/^https?:\/\//, "")} / audit / ${report.runId}` : "no store yet / audit"}
         </div>
         <div className="p-6">
         <Eyebrow>Score · {label}</Eyebrow>
         <div className="flex items-baseline gap-3">
-          <p className="text-[88px] leading-none tracking-[-0.04em] tabular-nums">
+          <p className="text-[56px] leading-none tracking-[-0.04em] tabular-nums">
             {report ? report.total : "–"}
             <span className="text-[#B5B4AE]">/100</span>
           </p>
@@ -264,9 +265,9 @@ export function AuditBoard() {
           </p>
         ) : null}
         {report?.categories?.length ? (
-          <div className="mt-8 border-t border-[#E6E5E0]">
+          <div className="mt-3 border-t border-[#E6E5E0]">
             {report.categories.map((category) => (
-              <div key={category.id} className="flex items-center justify-between border-b border-[#E6E5E0] py-2 text-[14px]">
+              <div key={category.id} className="flex items-center justify-between border-b border-[#E6E5E0] py-3 text-[14px]">
                 <span>{category.label}</span>
                 <span className="flex items-center gap-4">
                   <span className="h-px w-32 bg-[#E6E5E0]">
@@ -284,9 +285,9 @@ export function AuditBoard() {
       </section>
 
       {report?.categories?.length ? (
-        <section className="mt-16 grid gap-10 sm:grid-cols-2">
+        <section className="mt-8 grid gap-6 sm:grid-cols-2">
           <div>
-            <h2 className="border-b border-[#E6E5E0] pb-3 text-[17px] font-medium">What agents could do</h2>
+            <h2 className="border-b border-[#E6E5E0] pb-3 text-[14px] font-medium">What agents could do</h2>
             {report.categories.filter((category) => category.score >= 70).length === 0 ? (
               <p className="py-3 text-[14px] text-[#8A8984]">No category passed yet.</p>
             ) : (
@@ -316,11 +317,13 @@ export function AuditBoard() {
         </section>
       ) : null}
 
-      <section className="mt-20">
+      </div>
+      <div className="min-w-0">
+      <section>
         <Eyebrow>Shoppers</Eyebrow>
         <div className="border-t border-[#E6E5E0]">
           {shoppers.map((shopper) => (
-            <div key={shopper.persona} className="grid grid-cols-[140px_1fr_auto] gap-4 border-b border-[#E6E5E0] py-3 text-[14px]">
+            <div key={shopper.persona} className="grid grid-cols-[140px_1fr_auto] gap-3 border-b border-[#E6E5E0] py-3 text-[14px]">
               <div>
                 <p>{PERSONAS[shopper.persona as PersonaId].label}</p>
                 <p className="mt-1 flex items-center gap-2 text-[12px] text-[#8A8984]">
@@ -350,7 +353,7 @@ export function AuditBoard() {
         </div>
       </section>
 
-      <section className="mt-20">
+      <section className="mt-8">
         <Eyebrow>Fixes</Eyebrow>
         {report == null ? (
           <p className="text-[14px] text-[#8A8984]">Fixes appear as the report actor records them.</p>
@@ -359,7 +362,7 @@ export function AuditBoard() {
         ) : (
           <ol className="border-t border-[#E6E5E0]">
             {report.findings.map((finding) => (
-              <li key={finding.code} className="grid grid-cols-[220px_1fr] gap-4 border-b border-[#E6E5E0] py-4 text-[14px]">
+              <li key={finding.code} className="grid grid-cols-[180px_1fr] gap-3 border-b border-[#E6E5E0] py-3 text-[14px]">
                 <div>
                   <p className="font-mono text-[12px]">{finding.code}</p>
                   <p className="mt-1 text-[12px] text-[#8A8984]">
@@ -383,7 +386,10 @@ export function AuditBoard() {
         )}
       </section>
 
-      <section className="mt-20">
+      </div>
+      </div>
+
+      <section className="mt-8">
         <Eyebrow>Feed · #floor and #findings</Eyebrow>
         <div
           ref={logRef}
