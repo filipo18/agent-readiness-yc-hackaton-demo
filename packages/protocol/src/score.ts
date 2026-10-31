@@ -1,4 +1,4 @@
-import { FIX_COPY, type Finding, type FindingCode } from "./findings.js"
+import { FIX_COPY, RESEARCH, type Finding, type FindingCode } from "./findings.js"
 import {
   PERSONAS,
   type CategoryScore,
@@ -103,7 +103,8 @@ function checkoutFit(evidence: StoreEvidence): number {
 
 function pushFinding(list: Finding[], code: FindingCode, personas: string[]): void {
   const copy = FIX_COPY[code]
-  list.push({ code, severity: copy.severity, summary: copy.summary, fix: copy.fix, personas })
+  const why = RESEARCH[code]
+  list.push({ code, severity: copy.severity, summary: copy.summary, fix: copy.fix, personas, ...(why ? { why } : {}) })
 }
 
 function personasWhere(evidence: StoreEvidence, pred: (mission: MissionEvidence) => boolean): string[] {
@@ -131,6 +132,12 @@ export function deriveFindings(evidence: StoreEvidence): Finding[] {
   if (evidence.catalog.imagedRatio < 1) pushFinding(findings, "IMAGE_MISSING", [])
   if (clamp01(evidence.catalog.experimentRatio ?? 0) >= 0.2) {
     pushFinding(findings, "EXPERIMENT_TITLES", ["impatient", "bargain"])
+  }
+  if ((evidence.catalog.thinDescriptionRatio ?? 0) >= 0.5) {
+    pushFinding(findings, "LISTING_DETAIL_THIN", [])
+  }
+  if ((evidence.catalog.conflictingTitleCount ?? 0) > 0) {
+    pushFinding(findings, "CONFLICTING_LISTINGS", [])
   }
 
   const colorMiss = personasWhere(
@@ -200,7 +207,11 @@ export function scoreStore(evidence: StoreEvidence): StoreScore {
     evidence.catalog.productCount === 0
       ? 0
       : clamp01(evidence.catalog.pricedRatio) * 60 + clamp01(evidence.catalog.imagedRatio) * 40
-  const catalog = catalogBase * (1 - 0.4 * clamp01(evidence.catalog.experimentRatio ?? 0))
+  const catalog =
+    catalogBase *
+    (1 - 0.4 * clamp01(evidence.catalog.experimentRatio ?? 0)) *
+    (1 - 0.2 * clamp01(evidence.catalog.thinDescriptionRatio ?? 0)) *
+    ((evidence.catalog.conflictingTitleCount ?? 0) > 0 ? 0.9 : 1)
 
   const categories = [
     category("discoverability", discoverability),

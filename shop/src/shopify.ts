@@ -1,5 +1,5 @@
 import { blankEvidence, type StoreEvidence } from "@readiness/protocol"
-import { experimentRatio } from "./catalog.js"
+import { conflictingTitleCount, experimentRatio, thinDescriptionRatio } from "./catalog.js"
 import { shopUrlFromEnv, storefrontPasswordFromEnv } from "./env.js"
 import { passwordUnlockSucceeded, scrapeAuthenticityToken, storefrontPasswordBody } from "./password.js"
 
@@ -231,6 +231,8 @@ export async function auditStorefront(storeUrl: string = shopUrlFromEnv(), passw
     evidence.catalog.pricedRatio = priced / products.length
     evidence.catalog.imagedRatio = imaged / products.length
     evidence.catalog.experimentRatio = experimentRatio(products)
+    evidence.catalog.thinDescriptionRatio = thinDescriptionRatio(products)
+    evidence.catalog.conflictingTitleCount = conflictingTitleCount(products)
   }
 
   try {

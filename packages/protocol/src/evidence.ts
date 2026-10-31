@@ -101,6 +101,10 @@ export interface StoreEvidence {
      * Missing means 0 so older fixtures keep their catalog score.
      */
     experimentRatio?: number
+    /** Share of products whose description has fewer than 40 words. Missing means unknown. */
+    thinDescriptionRatio?: number
+    /** Same shopper-facing title listed at different prices. Missing means unknown. */
+    conflictingTitleCount?: number
   }
   policies: {
     shippingText: string | null

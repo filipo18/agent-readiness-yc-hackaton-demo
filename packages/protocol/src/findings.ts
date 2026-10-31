@@ -19,6 +19,8 @@ export const FINDING_CODES = [
   "RETURNS_WINDOW_MISSING",
   "CHECKOUT_UNREACHABLE",
   "CHECKOUT_BOT_WALL",
+  "LISTING_DETAIL_THIN",
+  "CONFLICTING_LISTINGS",
 ] as const
 
 export type FindingCode = (typeof FINDING_CODES)[number]
@@ -34,6 +36,13 @@ export interface Finding {
   fix: string
   /** Personas that observed it. Deduped by the report actor. */
   personas: string[]
+  /** Evidence from Filip's LLM shopping experiments, when one applies. */
+  why?: ResearchNote
+}
+
+export interface ResearchNote {
+  experiment: string
+  stat: string
 }
 
 export const FIX_COPY: Record<FindingCode, { severity: FindingSeverity; summary: string; fix: string }> = {
@@ -131,5 +140,54 @@ export const FIX_COPY: Record<FindingCode, { severity: FindingSeverity; summary:
     severity: "major",
     summary: "Checkout responded with a bot wall.",
     fix: "Allow a checkout session that was created from the Ajax cart. Stop before payment; do not require a human captcha to see shipping.",
+  },
+  LISTING_DETAIL_THIN: {
+    severity: "major",
+    summary: "Many product descriptions are under 40 words.",
+    fix: "Write the decision facts in the description text: fit, use, materials, drop, weight, care. Agents rank on what the listing says.",
+  },
+  CONFLICTING_LISTINGS: {
+    severity: "major",
+    summary: "The same product title is listed at different prices.",
+    fix: "Merge duplicate listings into one product with variants, or give each a distinct title. Conflicting copies of one offer read as unreliable.",
+  },
+}
+
+/**
+ * Research-backed context. Every number is quoted from Filip's experiments
+ * (8 LLMs ranking 25 running-shoe offers). Nothing here is extrapolated.
+ */
+export const RESEARCH: Partial<Record<FindingCode, ResearchNote>> = {
+  LISTING_DETAIL_THIN: {
+    experiment: "Experiment 3 · fixed $150, balanced order",
+    stat: "Missing or less useful information was a stated reason against an offer in 591 of 2,000 explanations (29.55%).",
+  },
+  CONFLICTING_LISTINGS: {
+    experiment: "Experiment 3 · fixed $150, balanced order",
+    stat: "Conflicting information was a stated reason against an offer in 172 of 2,000 explanations (8.60%).",
+  },
+  VARIANT_SPEC_UNMATCHED: {
+    experiment: "Experiment 2 · fixed price $150",
+    stat: "Product suitability was the primary reason for 96.7% of first-place picks (58 of 60).",
+  },
+  SIZE_OPTION_MISSING: {
+    experiment: "Experiment 2 · fixed price $150",
+    stat: "Product suitability was the primary reason for 96.7% of first-place picks (58 of 60).",
+  },
+  COLOR_NOT_IN_TEXT: {
+    experiment: "Experiment 4 · input position",
+    stat: "Listing completeness was cited in 20.0% of 6,000 offer-level reasons (1,201).",
+  },
+  PRICE_MISSING: {
+    experiment: "Running-shoe ranking repeatability vs Experiment 2",
+    stat: "Price/value led 70% of first-place explanations (42 of 60); with every price fixed at $150 it fell to 0%.",
+  },
+  SEARCH_UNUSABLE: {
+    experiment: "Experiment 4 · input position",
+    stat: "Appearing first instead of fifth won the #1 pick 90.0 pp more often [85.7, 94.0] across 8 models.",
+  },
+  EXPERIMENT_TITLES: {
+    experiment: "Experiment 4 · input position",
+    stat: "Earlier position improved average rank by 3.31 places [3.12, 3.48].",
   },
 }

@@ -64,7 +64,7 @@ function LogText({ text }: { text: string }) {
 }
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
-  return <p className="mb-3 text-[13px] text-[#8A8984]">{children}</p>
+  return <p className="mb-3 text-[11px] uppercase tracking-[0.08em] text-[#8A8984]">{children}</p>
 }
 
 
@@ -168,7 +168,15 @@ export function AuditBoard() {
   const label = mode === "live" ? "Live store" : fixture === "after" ? "Recorded store, after fix" : "Recorded store"
 
   return (
-    <main className="mx-auto w-full max-w-[880px] px-6 pt-24 pb-32">
+    <>
+    <nav className="border-b border-[#E6E5E0]">
+      <div className="mx-auto flex h-14 max-w-[880px] items-center gap-6 px-6">
+        <span className="text-[18px] font-semibold tracking-[-0.03em]">tiebreaks.</span>
+        <span className="text-[13px] text-[#8A8984]">Audit your store</span>
+        <span className="ml-auto rounded-[4px] border border-[#E6E5E0] px-2 py-1 text-[10px] uppercase tracking-[0.08em] text-[#8A8984]">Five agent shoppers</span>
+      </div>
+    </nav>
+    <main className="mx-auto w-full max-w-[880px] px-6 pt-20 pb-32">
       <header>
         <Eyebrow>Agent readiness</Eyebrow>
         <h1 className="max-w-[640px] text-[28px] leading-[1.2] tracking-[-0.02em]">
@@ -195,7 +203,7 @@ export function AuditBoard() {
             spellCheck={false}
             value={storeUrl}
             onChange={(event) => setStoreUrl(event.target.value)}
-            className="h-10 flex-1 rounded-[3px] border border-[#E6E5E0] bg-[#F0EFEB] px-3 font-mono text-[13px] text-[#26251E] outline-none placeholder:text-[#8A8984] focus:border-[#8A8984]"
+            className="h-10 flex-1 rounded-[8px] border border-[#E6E5E0] bg-white px-3 font-mono text-[13px] text-[#26251E] outline-none placeholder:text-[#8A8984] focus:border-[#8A8984]"
           />
           <input
             aria-label="Storefront password (optional)"
@@ -204,12 +212,12 @@ export function AuditBoard() {
             placeholder="Storefront password (optional)"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="h-10 rounded-[3px] border border-[#E6E5E0] bg-[#F0EFEB] px-3 text-[13px] text-[#26251E] outline-none placeholder:text-[#8A8984] focus:border-[#8A8984] sm:w-56"
+            className="h-10 rounded-[8px] border border-[#E6E5E0] bg-white px-3 text-[13px] text-[#26251E] outline-none placeholder:text-[#8A8984] focus:border-[#8A8984] sm:w-56"
           />
           <button
             type="submit"
             disabled={running || !storeUrl.trim()}
-            className="h-10 rounded-full bg-[#26251E] px-5 text-[14px] text-[#F7F7F4] disabled:opacity-40"
+            className="h-10 rounded-[6px] bg-[#14130F] px-5 text-[14px] text-white disabled:opacity-40"
           >
             {running ? "Running…" : "Run audit →"}
           </button>
@@ -227,7 +235,7 @@ export function AuditBoard() {
       </section>
 
       {error ? (
-        <section className="mt-10 rounded-[3px] border border-[#E6E5E0] bg-[#F0EFEB] px-5 py-4 text-[14px]">
+        <section className="mt-10 rounded-[8px] border border-[#E6E5E0] bg-white px-5 py-4 text-[14px]">
           <p>{error}</p>
           <button onClick={() => void run({ mode: "fixture", fixture: "before" })} className="mt-2 text-[13px] text-[#F54E00]">
             Replay the recorded store instead →
@@ -235,7 +243,11 @@ export function AuditBoard() {
         </section>
       ) : null}
 
-      <section className="mt-20" aria-live="polite">
+      <section className="mt-20 overflow-hidden rounded-[8px] border border-[#E6E5E0] bg-white" aria-live="polite">
+        <div className="border-b border-[#E6E5E0] bg-[#F0EFEB] px-5 py-2 font-mono text-[11px] text-[#8A8984]">
+          {report ? `${report.storeUrl.replace(/^https?:\/\//, "")} / audit / ${report.runId}` : "no store yet / audit"}
+        </div>
+        <div className="p-6">
         <Eyebrow>Score · {label}</Eyebrow>
         <div className="flex items-baseline gap-3">
           <p className="text-[88px] leading-none tracking-[-0.04em] tabular-nums">
@@ -271,7 +283,41 @@ export function AuditBoard() {
             ))}
           </div>
         ) : null}
+        </div>
       </section>
+
+      {report?.categories?.length ? (
+        <section className="mt-16 grid gap-10 sm:grid-cols-2">
+          <div>
+            <h2 className="border-b border-[#E6E5E0] pb-3 text-[17px] font-medium">What agents could do</h2>
+            {report.categories.filter((category) => category.score >= 70).length === 0 ? (
+              <p className="py-3 text-[14px] text-[#8A8984]">No category passed yet.</p>
+            ) : (
+              report.categories
+                .filter((category) => category.score >= 70)
+                .map((category) => (
+                  <p key={category.id} className="flex gap-2 border-b border-[#E6E5E0] py-3 text-[14px]">
+                    <span className="text-[#1F7A72]">✓</span>
+                    {category.label}
+                  </p>
+                ))
+            )}
+          </div>
+          <div>
+            <h2 className="border-b border-[#E6E5E0] pb-3 text-[17px] font-medium">Missing on your page</h2>
+            {report.findings.length === 0 ? (
+              <p className="py-3 text-[14px] text-[#8A8984]">Nothing missing. Every check passed.</p>
+            ) : (
+              report.findings.map((finding) => (
+                <p key={finding.code} className="border-b border-[#E6E5E0] py-3 text-[14px]">
+                  {finding.summary}
+                </p>
+              ))
+            )}
+            <p className="mt-3 text-[12px] text-[#8A8984]">{report.findings.length} open</p>
+          </div>
+        </section>
+      ) : null}
 
       <section className="mt-20">
         <Eyebrow>Shoppers</Eyebrow>
@@ -327,6 +373,12 @@ export function AuditBoard() {
                 <div>
                   <p>{finding.summary}</p>
                   <p className="mt-1 text-[#8A8984]">{finding.fix}</p>
+                  {finding.why ? (
+                    <p className="mt-2 text-[13px] text-[#8A8984]">
+                      <span className="text-[11px] uppercase tracking-[0.08em] text-[#1F7A72]">Why this matters</span> · {finding.why.stat}{" "}
+                      <span className="font-mono text-[12px]">{finding.why.experiment}</span>
+                    </p>
+                  ) : null}
                 </div>
               </li>
             ))}
@@ -340,7 +392,7 @@ export function AuditBoard() {
           ref={logRef}
           role="log"
           aria-label="Relay messages"
-          className="max-h-[480px] overflow-y-auto rounded-[3px] border border-[#E6E5E0] bg-[#F0EFEB] px-4 py-3"
+          className="max-h-[480px] overflow-y-auto rounded-[8px] border border-[#E6E5E0] bg-white px-4 py-3"
         >
           {messages.length === 0 ? (
             <p className="font-mono text-[12px] text-[#8A8984]">Waiting for a run.</p>
@@ -360,5 +412,6 @@ export function AuditBoard() {
         </div>
       </section>
     </main>
+    </>
   )
 }

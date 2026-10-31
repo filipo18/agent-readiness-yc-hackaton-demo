@@ -44,3 +44,28 @@ export function variantForSize(product: ShopifyProduct, size: string): ShopifyVa
 export function hasShoeSize(product: ShopifyProduct, size: string): boolean {
   return variantForSize(product, size) != null
 }
+
+export function descriptionWords(product: ShopifyProduct): number {
+  const text = (product.body_html ?? "").replace(/<[^>]*>/g, " ").replace(/&[a-z#0-9]+;/gi, " ")
+  return text.split(/\s+/).filter(Boolean).length
+}
+
+/** Share of products with fewer than 40 words of description text. */
+export function thinDescriptionRatio(products: ShopifyProduct[]): number {
+  if (products.length === 0) return 0
+  return products.filter((product) => descriptionWords(product) < 40).length / products.length
+}
+
+/** Titles that appear on more than one product with a different lowest price. */
+export function conflictingTitleCount(products: ShopifyProduct[]): number {
+  const prices = new Map<string, Set<string>>()
+  for (const product of products) {
+    const key = product.title.trim().toLowerCase().replace(/\s+/g, " ")
+    const low = cheapestAvailable(product)?.price ?? product.variants[0]?.price
+    if (!key || low == null) continue
+    const set = prices.get(key) ?? new Set<string>()
+    set.add(Number(low).toFixed(2))
+    prices.set(key, set)
+  }
+  return [...prices.values()].filter((set) => set.size > 1).length
+}
