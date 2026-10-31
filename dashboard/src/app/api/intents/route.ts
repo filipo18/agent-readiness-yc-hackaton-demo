@@ -1,4 +1,4 @@
-import { isExperimentTitle, loadSnapshot } from "@readiness/shop"
+import { isExperimentTitle, isGhost18, loadSnapshot } from "@readiness/shop"
 
 export const dynamic = "force-dynamic"
 
@@ -18,28 +18,18 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => ({}))) as { storeUrl?: string; password?: string }
   try {
     const snap = await loadSnapshot({ mode: "live", fixture: "before", storeUrl: body.storeUrl?.slice(0, 300), password: body.password?.slice(0, 200) })
-    const products = snap.products.filter((p) => !isExperimentTitle(p.title))
-    if (products.length === 0) return Response.json(GENERIC)
-    const price = (p: (typeof products)[number]) => Math.min(...p.variants.map((v) => Number(v.price)).filter(Number.isFinite))
-    const counts = new Map<string, number>()
-    for (const p of products) if (p.product_type) counts.set(p.product_type, (counts.get(p.product_type) ?? 0) + 1)
-    const type = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "product"
-    const noun = type.toLowerCase().replace(/s$/, "")
-    const ofType = products.filter((p) => p.product_type === type)
-    const prices = ofType.map(price).filter(Number.isFinite).sort((a, b) => a - b)
-    const median = prices[Math.floor(prices.length / 2)]
-    const withOption = ofType.find((p) => p.options.some((o) => o.name.toLowerCase() !== "title" && o.values.length > 1))
-    const option = withOption?.options.find((o) => o.name.toLowerCase() !== "title" && o.values.length > 1)
-    const spec = withOption && option
-      ? `Needs ${withOption.title} in ${option.name.toLowerCase()} ${option.values[option.values.length > 1 ? 1 : 0]}.`
-      : `Needs a ${noun} in one exact size, and the size must be selectable.`
-    const gift = [...ofType].sort((a, b) => price(a) - price(b))[Math.floor(ofType.length / 2)] ?? products[0]
+    // Missions target the Brooks Men's Ghost 18, so the intent text describes that product.
+    const ghost = snap.products.find((p) => isGhost18(p))
+    if (!ghost) return Response.json(GENERIC)
+    const price = Math.min(...ghost.variants.map((v) => Number(v.price)).filter(Number.isFinite))
+    const hasSize = ghost.options.some((o) => o.name.toLowerCase() === "size")
+    const viz = snap.products.filter((p) => isExperimentTitle(p.title)).length
     return Response.json({
-      bargain: median != null ? `Wants the cheapest ${noun} under ${money(median)}.` : `Wants the cheapest ${noun}.`,
-      gift: `Needs ${gift.title} (${money(price(gift))}) delivered by Friday.`,
-      spec,
-      impatient: `Will buy any in-stock ${noun}, but only in 4 clicks or fewer.`,
-      returns: `Only buys a ${noun} if returns are stated in days.`,
+      bargain: `Wants the cheapest Brooks Men's Ghost 18 (${money(price)})${viz ? `, skipping ${viz} VIZ test copies` : ""}.`,
+      gift: `Gifting the Ghost 18 (${money(price)}); needs delivery within 5 days.`,
+      spec: `Wants the Ghost 18 in men's size 10${hasSize ? "." : " (the store has no size option)."}`,
+      impatient: "Will buy any in-stock product, but only in 4 steps or fewer.",
+      returns: `Only buys the Ghost 18 if the refund policy states a return window in days.`,
     })
   } catch {
     return Response.json(GENERIC)

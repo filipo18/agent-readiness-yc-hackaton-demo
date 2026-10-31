@@ -40,7 +40,7 @@ export async function resetStore(opts: { env?: Record<string, string | undefined
   } else {
     baseline = await port.read()
     baseline = { ...baseline, shippingHtml: "", shippingText: "", refundHtml: "", refundText: "" }
-    if (baseline.products.length > 0 && !dryRun) {
+    if (baseline.products.length > 0) {
       writeFileSync(path, JSON.stringify(baseline, null, 2), { mode: 0o600 })
       baselineCreated = true
       actions.push(`Saved baseline snapshot of ${baseline.products.length} products.`)

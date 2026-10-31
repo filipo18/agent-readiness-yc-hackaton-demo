@@ -71,7 +71,7 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 const PLAIN_PERSONA: Record<string, { name: string; intent: string }> = {
   bargain: { name: "Bargain hunter", intent: "Wants the cheapest Brooks Ghost 18 in the store." },
   gift: { name: "Gift buyer", intent: "Needs a pair of Ghost 18s delivered by Friday." },
-  spec: { name: "Exact-spec buyer", intent: "Wants the Ghost 18 in men's size 10, nothing else." },
+  spec: { name: "Size 10 runner", intent: "Wants the Ghost 18 in men's size 10, nothing else." },
   impatient: { name: "Impatient buyer", intent: "Will buy anything in stock, but only in 4 clicks or fewer." },
   returns: { name: "Returns checker", intent: "Only buys if the store says how many days you have to return it." },
 }

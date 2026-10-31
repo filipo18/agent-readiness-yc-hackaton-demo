@@ -593,7 +593,7 @@ export class LivePort {
     let refundHtml: string | null = null
     let ghosts: CatalogProduct[] = []
     for (let page = 0; page < 4; page += 1) {
-      const data = await this.graphql(READ_QUERY, { ghostQuery: "title:Ghost", vizQuery: "title:VIZ", cursor })
+      const data = await this.graphql(READ_QUERY, { ghostQuery: "title:*Ghost*", vizQuery: "title:VIZ*", cursor })
       const root = asRecord(data)
       if (!root) throw new Error("Shopify Admin read returned no data")
       if (page === 0) {
