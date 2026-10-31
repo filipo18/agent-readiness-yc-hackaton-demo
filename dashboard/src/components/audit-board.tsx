@@ -1,5 +1,6 @@
 "use client"
 
+import { ProductPreview, type PreviewCatalog } from "./product-preview"
 import { useEffect, useRef, useState } from "react"
 import { PERSONAS, PERSONA_IDS, type PersonaId, type ReportView, type ShopperView } from "@readiness/protocol"
 
@@ -92,6 +93,7 @@ function plainIssue(code: string, summary: string, fix: string) {
 
 interface FixProposal {
   id: string
+  kind: string
   title: string
   before: string
   after: string
@@ -145,6 +147,11 @@ function ResetStoreButton() {
 }
 
 function FixesPanel({ report, messages, onRerun }: { report: ReportView; messages: RelayMessage[]; onRerun: () => void }) {
+  const [catalog, setCatalog] = useState<PreviewCatalog | null>(null)
+  useEffect(() => {
+    void fetch("/api/catalog", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ storeUrl: report.storeUrl }) })
+      .then((r) => r.json()).then((c: PreviewCatalog) => setCatalog(c)).catch(() => undefined)
+  }, [report.storeUrl])
   const [state, setState] = useState<FixerState | null>(null)
   const [busy, setBusy] = useState<string | null>("open")
   const [err, setErr] = useState<string | null>(null)
@@ -222,6 +229,7 @@ function FixesPanel({ report, messages, onRerun }: { report: ReportView; message
             </div>
             <details className="mt-2">
               <summary className="cursor-pointer text-[12px] text-[#8A8984]">Preview change</summary>
+              {["ghost_size", "viz_catalog", "jsonld_hint"].includes(p.kind) ? <ProductPreview kind={p.kind} catalog={catalog} /> : (
               <div className="mt-2 grid gap-3 sm:grid-cols-2">
                 <div>
                   <p className="mb-1 text-[11px] uppercase tracking-[0.08em] text-[#8A8984]">Before</p>
@@ -232,6 +240,7 @@ function FixesPanel({ report, messages, onRerun }: { report: ReportView; message
                   <p className="whitespace-pre-wrap text-[13px]">{p.after}</p>
                 </div>
               </div>
+              )}
             </details>
             {p.error ? <p className="mt-1 text-[12px] text-[#9A3412]">{p.error}</p> : null}
           </li>

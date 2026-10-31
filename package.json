@@ -19,10 +19,11 @@
     "fixer:check": "bun shop/src/fixer.check.ts",
     "typecheck": "tsc --noEmit -p packages/protocol/tsconfig.json && tsc --noEmit -p shop/tsconfig.json && tsc --noEmit -p actors/tsconfig.json && tsc --noEmit -p orchestrator/tsconfig.json",
     "demo": "bun orchestrator/src/demo.ts",
-    "dashboard": "bun run --cwd dashboard dev",
-    "actors": "bun run --cwd actors dev",
+    "dashboard": "set -a; [ -f .env ] && . ./.env; [ -f .env.relay ] && . ./.env.relay; set +a; bun run --cwd dashboard dev",
+    "actors": "set -a; [ -f .env ] && . ./.env; [ -f .env.relay ] && . ./.env.relay; set +a; bun run --cwd actors dev",
     "orchestrator": "bun run --cwd orchestrator start",
     "live": "bun run --cwd orchestrator live",
-    "reset-store": "bun shop/scripts/reset-store.ts"
+    "reset-store": "set -a; [ -f .env ] && . ./.env; [ -f .env.relay ] && . ./.env.relay; set +a; bun shop/scripts/reset-store.ts",
+    "start": "set -a; [ -f .env ] && . ./.env; [ -f .env.relay ] && . ./.env.relay; set +a; trap 'kill 0' INT TERM; bun run --cwd actors dev & bun run --cwd dashboard dev & wait"
   }
 }
