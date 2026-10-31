@@ -1,6 +1,49 @@
 import { AgentRelay, createObserverToken, type RelayAgentClient } from "@agent-relay/sdk"
 import { PERSONA_IDS } from "@readiness/protocol"
 import { z } from "zod"
+import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs"
+
+// Agent tokens per workspace, so reruns reconnect instead of hitting name_conflict.
+const AGENT_FILE = new URL("../../.relay-agents.json", import.meta.url).pathname
+
+function quiet<T>(p: Promise<T>): Promise<T | undefined> {
+  return p.catch(() => undefined)
+}
+
+async function agentFor(relay: AgentRelay, workspaceKey: string, name: string, extra: Record<string, unknown>): Promise<RelayAgentClient> {
+  const store: Record<string, Record<string, string>> = existsSync(AGENT_FILE) ? JSON.parse(readFileSync(AGENT_FILE, "utf8")) : {}
+  const ws = workspaceKey.slice(-12)
+  const saved = store[ws]?.[name]
+  if (saved) {
+    try {
+      return await relay.workspace.reconnect({ apiToken: saved })
+    } catch {
+      // fall through and register
+    }
+  }
+  // Sequential + backoff: Relaycast rate-limits bursts ("write capacity is busy").
+  // If the name exists but we lost its token, take a suffixed name instead.
+  let agent: RelayAgentClient | undefined
+  let attempt = 0
+  let suffix = 0
+  while (!agent) {
+    const tryName = suffix ? `${name}-${suffix}` : name
+    try {
+      agent = (await relay.workspace.register({ name: tryName, type: "agent", ...extra } as any)) as RelayAgentClient
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error)
+      if (/already exists|name_conflict/i.test(msg) && suffix < 20) { suffix += 1; continue }
+      if (/busy|retry|overloaded|429|503/i.test(msg) && attempt < 6) { attempt += 1; await new Promise((r) => setTimeout(r, 500 * 2 ** attempt)); continue }
+      throw error
+    }
+  }
+  if (agent.token) {
+    store[ws] = { ...(store[ws] ?? {}), [name]: agent.token }
+    writeFileSync(AGENT_FILE, JSON.stringify(store))
+    chmodSync(AGENT_FILE, 0o600)
+  }
+  return agent
+}
 
 export const FindingReport = z.object({
   runId: z.string(),
@@ -17,6 +60,8 @@ export interface RelaySquad {
   observerToken: string
   coordinator: RelayAgentClient
   shoppers: RelayAgentClient[]
+  /** Logical name (persona or "coordinator") to client; registered name may carry a suffix. */
+  byName: Record<string, RelayAgentClient>
 }
 
 /**
@@ -44,23 +89,21 @@ export async function connectRelay(onFinding: (input: FindingReportInput, from: 
     throw new Error("Relay created a workspace but did not expose workspaceKey. Set RELAY_WORKSPACE_KEY.")
   }
 
-  const coordinator = await relay.workspace.register({ name: "coordinator", type: "agent" })
+  const coordinator = await agentFor(relay, workspaceKey, "coordinator", {})
   const shoppers: RelayAgentClient[] = []
+  const byName: Record<string, RelayAgentClient> = { coordinator }
   for (const persona of PERSONA_IDS) {
-    shoppers.push(await relay.workspace.register({ name: persona, type: "agent", persona }))
+    const agent = await agentFor(relay, workspaceKey, persona, { persona })
+    shoppers.push(agent)
+    byName[persona] = agent
   }
 
-  await coordinator.channels.create({
-    name: "floor",
-    topic: "Shopper status, questions, and tips",
-  })
-  await coordinator.channels.create({
-    name: "findings",
-    topic: "Structured blockers. One message per finding code.",
-  })
+  // Channels already exist on reruns; ignore "already exists".
+  await quiet(coordinator.channels.create({ name: "floor", topic: "Shopper status, questions, and tips" }))
+  await quiet(coordinator.channels.create({ name: "findings", topic: "Structured blockers. One message per finding code." }))
   for (const shopper of shoppers) {
-    await shopper.channels.join("floor")
-    await shopper.channels.join("findings")
+    await quiet(shopper.channels.join("floor"))
+    await quiet(shopper.channels.join("findings"))
   }
 
   const reported = relay.registerAction({
@@ -85,9 +128,11 @@ export async function connectRelay(onFinding: (input: FindingReportInput, from: 
     console.error("finding.report failed", event.error)
   })
 
-  const observer = await createObserverToken({
+  // Reuse a saved observer token; otherwise mint one with a unique name.
+  const savedObserver = process.env.RELAY_OBSERVER_TOKEN?.trim()
+  const observer = savedObserver ? { token: savedObserver } : await createObserverToken({
     workspaceKey,
-    name: "dashboard",
+    name: `dashboard-${Date.now().toString(36)}`,
     baseUrl,
     filters: { channelNames: ["floor", "findings"] },
   })
@@ -95,7 +140,7 @@ export async function connectRelay(onFinding: (input: FindingReportInput, from: 
     throw new Error("Observer token was not returned. The dashboard cannot stream Relay without it.")
   }
 
-  return { relay, workspaceKey, observerToken: observer.token, coordinator, shoppers }
+  return { relay, workspaceKey, observerToken: observer.token, coordinator, shoppers, byName }
 }
 
 function tryJson(text: string): unknown {

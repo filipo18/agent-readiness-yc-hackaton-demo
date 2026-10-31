@@ -5,7 +5,7 @@ let final: any
 let meta: any
 const floor: string[] = []
 for await (const event of runAudit({ mode: "live", fixture: "before", stepMs: 0, relay: "auto" })) {
-  if (event.type === "meta") meta = event
+  if (event.type === "meta") { meta = event; if (event.posted) console.log("relay posts:", JSON.stringify(event.posted)) }
   if (event.type === "relay") floor.push(`#${event.message.channel} ${event.message.from}: ${event.message.text}`)
   if (event.type === "report" && event.report.status === "final") final = event.report
   if (event.type === "error") { console.error("ERROR", event.message); process.exit(1) }

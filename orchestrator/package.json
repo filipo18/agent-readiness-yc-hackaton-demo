@@ -8,7 +8,8 @@
   },
   "scripts": {
     "start": "bun src/main.ts",
-    "live": "bun src/live.ts"
+    "live": "bun src/live.ts",
+    "readback": "bun src/readback.ts"
   },
   "dependencies": {
     "@agent-relay/sdk": "^15.0.1",

@@ -11,3 +11,5 @@ dashboard/.next
 orchestrator/src/generated
 .DS_Store
 agent-tools
+.env.relay
+.relay-agents.json

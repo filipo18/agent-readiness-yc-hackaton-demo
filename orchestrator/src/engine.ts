@@ -21,7 +21,7 @@ export type RunEvent =
   | { type: "shopper"; view: ShopperView }
   | { type: "report"; report: ReportView }
   | { type: "relay"; message: RelayNote }
-  | { type: "meta"; relay: "local" | "agent-relay"; storeUrl: string }
+  | { type: "meta"; relay: "local" | "agent-relay"; storeUrl: string; posted?: { ok: number; failed: number } }
   | { type: "done" }
   | { type: "error"; message: string }
 
@@ -161,6 +161,10 @@ export async function* runAudit(request: RunRequest): AsyncGenerator<RunEvent> {
     mirror,
     stepMs,
   )
+  if (mirror) {
+    const counts = await mirror.flush()
+    yield { type: "meta", relay: "agent-relay", storeUrl, posted: counts }
+  }
   yield { type: "done" }
 }
 
@@ -170,32 +174,58 @@ function findingBody(runId: string, persona: PersonaId, item: ShopAnnouncement) 
 
 async function* say(message: RelayNote, mirror: RelayMirror | null, stepMs: number): AsyncGenerator<RunEvent> {
   yield { type: "relay", message }
-  if (mirror) await mirror.post(message).catch(() => undefined)
+  if (mirror) mirror.post(message)
   await sleep(stepMs)
 }
 
-interface RelayMirror {
-  post(message: RelayNote): Promise<void>
+export interface RelayMirror {
+  /** Fire-and-forget with a timeout; never blocks the run. */
+  post(message: RelayNote): void
+  /** Wait for in-flight posts (bounded) and return counts. */
+  flush(): Promise<{ ok: number; failed: number }>
 }
+
+const POST_TIMEOUT_MS = 20_000
+
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([p, sleep(ms).then(() => { throw new Error(`${label} timed out`) })])
+}
+
+const runTag = Date.now().toString(36)
 
 async function connectMirror(): Promise<RelayMirror | null> {
   if (!process.env.RELAY_WORKSPACE_KEY?.trim()) return null
   try {
     const connected = await Promise.race([
       import("./relay.ts").then((mod) => mod.connectRelay(async () => undefined)),
-      sleep(8_000).then(() => {
+      sleep(45_000).then(() => {
         throw new Error("Relay timed out")
       }),
     ])
+    // Keep per-speaker order: chain posts per agent, run agents in parallel.
+    const chains = new Map<string, Promise<void>>()
+    let ok = 0
+    let failed = 0
     return {
-      async post(message: RelayNote) {
+      post(message: RelayNote) {
         const speaker =
-          connected.shoppers.find((shopper) => shopper.name === message.from) ?? connected.coordinator
-        await speaker.sendMessage({
-          to: `#${message.channel}`,
-          text: message.text,
-          idempotencyKey: message.id,
-        })
+          connected.byName[message.from] ?? connected.coordinator
+        const prev = chains.get(message.from) ?? Promise.resolve()
+        const next = prev.then(() =>
+          withTimeout(
+            speaker.sendMessage({ to: `#${message.channel}`, text: message.text, idempotencyKey: `${runTag}-${message.id}` }),
+            POST_TIMEOUT_MS,
+            "relay post",
+          ).then(
+            () => { ok += 1 },
+            (error) => { failed += 1; console.error("relay post failed:", error instanceof Error ? error.message : error) },
+          ),
+        )
+        chains.set(message.from, next)
+      },
+      async flush() {
+        await withTimeout(Promise.allSettled([...chains.values()]), 60_000, "relay flush").catch(() => undefined)
+        return { ok, failed }
       },
     }
   } catch (error) {
