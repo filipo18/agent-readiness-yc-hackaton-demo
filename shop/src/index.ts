@@ -23,3 +23,13 @@ export { experimentRatio, isExperimentTitle, isGhost18, SPEC_SIZE } from "./cata
 export { envPasswordFor, loadSnapshot } from "./load.js"
 export { shopPersona, type ShopAnnouncement, type ShopOutcome } from "./mission.js"
 export { normalizeStoreUrl } from "./shopify.js"
+export { ADMIN_API_VERSION, ADMIN_SCOPES, shouldDryRun } from "./admin.js"
+export {
+  FixerEngine,
+  collectFindings,
+  type FixerView,
+  type FixerBlob,
+  type FixProposal,
+  type FindingInput,
+  type RelayMessageInput,
+} from "./fixer.js"

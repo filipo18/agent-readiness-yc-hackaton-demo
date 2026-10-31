@@ -10,6 +10,7 @@
   "scripts": {
     "score": "bun packages/protocol/src/score.check.ts",
     "shop:check": "bun shop/src/parse.check.ts",
+    "fixer:check": "bun shop/src/fixer.check.ts",
     "typecheck": "tsc --noEmit -p packages/protocol/tsconfig.json && tsc --noEmit -p shop/tsconfig.json && tsc --noEmit -p actors/tsconfig.json && tsc --noEmit -p orchestrator/tsconfig.json",
     "demo": "bun orchestrator/src/demo.ts",
     "dashboard": "bun run --cwd dashboard dev",
