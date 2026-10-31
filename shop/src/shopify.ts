@@ -40,9 +40,20 @@ const JSON_HEADERS = {
 }
 
 export function originOf(storeUrl: string): string {
-  const url = new URL(storeUrl)
-  return url.origin
+  return normalizeStoreUrl(storeUrl)
 }
+
+/** `allbirds.com/collections/x` -> `https://allbirds.com`. Throws on garbage. */
+export function normalizeStoreUrl(input: string): string {
+  const raw = input.trim()
+  if (!raw) throw new Error("Enter a store URL.")
+  const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`)
+  if (!url.hostname.includes(".")) throw new Error(`"${raw}" is not a store URL.`)
+  return `https://${url.hostname.toLowerCase()}`
+}
+
+/** In-memory only, per origin, so the cart step reuses a visitor's password. Never persisted or logged. */
+const sessionPasswords = new Map<string, string>()
 
 export function textOf(product: ShopifyProduct): string {
   const tags = Array.isArray(product.tags) ? product.tags.join(" ") : product.tags
@@ -180,6 +191,7 @@ function looksLikeBotWall(body: string): boolean {
  */
 export async function auditStorefront(storeUrl: string = shopUrlFromEnv(), password: string | undefined = storefrontPasswordFromEnv()): Promise<StorefrontSnapshot> {
   const origin = originOf(storeUrl)
+  if (password) sessionPasswords.set(origin, password)
   const jar = new CookieJar()
   const evidence = blankEvidence(origin)
 
@@ -192,7 +204,7 @@ export async function auditStorefront(storeUrl: string = shopUrlFromEnv(), passw
     }
     for (let page = 1; page <= 4; page += 1) {
       const result = await getText(`${origin}/products.json?limit=250&page=${page}`, jar)
-      if (looksLikePasswordWall(result.response.url, result.text)) {
+      if (result.response.ok && looksLikePasswordWall(result.response.url, result.text)) {
         evidence.http.passwordWall = true
         return { origin, products, evidence }
       }
@@ -293,7 +305,7 @@ async function readPolicy(origin: string, handle: string, jar: CookieJar): Promi
  * Ajax cart add. Call this from a shopper after it has chosen a variant.
  * Keeps its own cookie jar for one shopper session.
  */
-export async function addToCart(origin: string, variantId: number, quantity = 1, password: string | undefined = storefrontPasswordFromEnv()): Promise<{ ok: boolean; status: number; body: string }> {
+export async function addToCart(origin: string, variantId: number, quantity = 1, password: string | undefined = sessionPasswords.get(origin)): Promise<{ ok: boolean; status: number; body: string }> {
   const jar = new CookieJar()
   if (password) {
     const opened = await unlockStorefront(origin, jar, password)

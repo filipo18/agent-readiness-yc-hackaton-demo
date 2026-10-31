@@ -1,6 +1,6 @@
 import { PERSONA_IDS } from "@readiness/protocol"
 import { actors } from "./generated/index.js"
-import { shopperId } from "./actors.ts"
+import { shopperId } from "./actors.js"
 
 const runId = process.argv[2]
 if (!runId) throw new Error("usage: bun src/query.ts <runId>")

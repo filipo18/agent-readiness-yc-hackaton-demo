@@ -40,7 +40,7 @@ interface $ShopperContract {
          * Shops one persona. The caller posts Relay lines and submits the mission
          * to StoreReport. This method does not write the shared score.
          */
-        shop(): Promise<MissionEvidence>
+        shop(password?: string | null): Promise<MissionEvidence>
         /** Full persisted state, for querying an actor after the run. */
         state(): Promise<{
             runId: string

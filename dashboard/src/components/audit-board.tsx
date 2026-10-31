@@ -1,18 +1,14 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { PERSONAS, PERSONA_IDS, type PersonaId, type ReportView, type ShopperView } from "@readiness/protocol"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
 
 interface RelayMessage {
   id: string
   channel: "floor" | "findings"
   from: string
   text: string
+  at?: string
 }
 
 interface Config {
@@ -20,15 +16,6 @@ interface Config {
   passwordSet: boolean
   openai: boolean
   relay: boolean
-}
-
-const TONE: Record<string, string> = {
-  bargain: "text-amber-700 dark:text-amber-200",
-  gift: "text-emerald-700 dark:text-emerald-200",
-  spec: "text-sky-700 dark:text-sky-200",
-  impatient: "text-rose-700 dark:text-rose-200",
-  returns: "text-violet-700 dark:text-violet-200",
-  coordinator: "text-muted-foreground",
 }
 
 function idleShoppers(): ShopperView[] {
@@ -44,12 +31,42 @@ function idleShoppers(): ShopperView[] {
   }))
 }
 
-function statusVariant(status: ShopperView["status"]): "default" | "secondary" | "destructive" | "outline" {
-  if (status === "running") return "default"
-  if (status === "blocked" || status === "error") return "destructive"
-  if (status === "done") return "secondary"
-  return "outline"
+const DOT: Record<string, string> = {
+  idle: "bg-[#D6D5D0]",
+  running: "bg-[#F54E00]",
+  done: "bg-[#26251E]",
+  blocked: "bg-[#8A8984]",
+  error: "bg-[#8A8984]",
 }
+
+function relTime(at: string | undefined, start: number | null): string {
+  if (!at || start == null) return "+0.0s"
+  const ms = Math.max(0, new Date(at).getTime() - start)
+  return `+${(ms / 1000).toFixed(1)}s`
+}
+
+/** Mono-wrap URLs, codes, and long numeric ids inside feed text. */
+function LogText({ text }: { text: string }) {
+  const parts = text.split(/(https?:\/\/\S+|\/[a-z][\w./-]*\.json|\b[A-Z][A-Z_]{4,}\b|\b\d{6,}\b)/g)
+  return (
+    <>
+      {parts.map((part, index) =>
+        index % 2 === 1 ? (
+          <span key={index} className="font-mono text-[12px] text-[#26251E]">
+            {part}
+          </span>
+        ) : (
+          <span key={index}>{part}</span>
+        ),
+      )}
+    </>
+  )
+}
+
+function Eyebrow({ children }: { children: React.ReactNode }) {
+  return <p className="mb-3 text-[13px] text-[#8A8984]">{children}</p>
+}
+
 
 export function AuditBoard() {
   const [config, setConfig] = useState<Config | null>(null)
@@ -61,7 +78,12 @@ export function AuditBoard() {
   const [report, setReport] = useState<ReportView | null>(null)
   const [messages, setMessages] = useState<RelayMessage[]>([])
   const [relayLabel, setRelayLabel] = useState("Local transcript")
+  const [storeUrl, setStoreUrl] = useState("")
+  // Held in memory for one request only. Never logged, persisted, or echoed back.
+  const [password, setPassword] = useState("")
   const logRef = useRef<HTMLDivElement>(null)
+  const [startedAt, setStartedAt] = useState<number | null>(null)
+  const [previousTotal, setPreviousTotal] = useState<number | null>(null)
   const sourceRef = useRef<EventSource | null>(null)
 
   useEffect(() => () => sourceRef.current?.close(), [])
@@ -69,7 +91,10 @@ export function AuditBoard() {
   useEffect(() => {
     void fetch("/api/config")
       .then((response) => response.json())
-      .then((body: Config) => setConfig(body))
+      .then((body: Config) => {
+        setConfig(body)
+        setStoreUrl((current) => current || body.shopUrl)
+      })
       .catch(() => setError("The dashboard could not read its config."))
   }, [])
 
@@ -77,13 +102,6 @@ export function AuditBoard() {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight })
   }, [messages])
 
-  const findingCount = report?.findings.length ?? 0
-  const headline = useMemo(() => {
-    if (error) return "Run stopped"
-    if (running) return "Shoppers are in the store"
-    if (report?.status === "final") return "Audit finished"
-    return "Ready when you are"
-  }, [error, report?.status, running])
 
   async function run(next?: { mode: "fixture" | "live"; fixture: "before" | "after" }) {
     const chosenMode = next?.mode ?? mode
@@ -92,13 +110,19 @@ export function AuditBoard() {
     setFixture(chosenFixture)
     setRunning(true)
     setError(null)
+    setPreviousTotal(report?.status === "final" ? report.total : previousTotal)
     setReport(null)
+    setStartedAt(Date.now())
     setMessages([])
     setShoppers(idleShoppers())
     const response = await fetch("/api/runs", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ mode: chosenMode, fixture: chosenFixture }),
+      body: JSON.stringify(
+        chosenMode === "live"
+          ? { mode: chosenMode, fixture: chosenFixture, storeUrl: storeUrl.trim(), password: password || undefined }
+          : { mode: chosenMode, fixture: chosenFixture },
+      ),
     })
     if (!response.ok) {
       setRunning(false)
@@ -140,157 +164,201 @@ export function AuditBoard() {
     }
   }
 
+  const delta = report?.status === "final" && previousTotal != null ? report.total - previousTotal : null
+  const label = mode === "live" ? "Live store" : fixture === "after" ? "Recorded store, after fix" : "Recorded store"
+
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-4 p-4 md:p-6">
-      <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Agent readiness</p>
-          <h1 className="text-2xl font-semibold tracking-tight">{headline}</h1>
-          <p className="max-w-xl text-sm text-muted-foreground">
-            Five shoppers try to buy Brooks Men&apos;s Ghost 18 on{" "}
-            <span className="text-foreground">{config?.shopUrl ?? "the dev store"}</span>. Nobody pays. The score is a rubric.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline">{relayLabel}</Badge>
-          <Badge variant="outline">{config?.passwordSet ? "Password set" : "No storefront password"}</Badge>
-          <Badge variant="outline">{config?.openai ? "Model on for live" : "Rules only"}</Badge>
-        </div>
+    <main className="mx-auto w-full max-w-[880px] px-6 pt-24 pb-32">
+      <header>
+        <Eyebrow>Agent readiness</Eyebrow>
+        <h1 className="max-w-[640px] text-[28px] leading-[1.2] tracking-[-0.02em]">
+          Can AI agents buy from your store? <span className="text-[#8A8984]">Five shoppers try. The rubric scores.</span>
+        </h1>
+        <p className="mt-4 text-[13px] text-[#8A8984]">
+          {relayLabel} · {config?.openai ? "Model on for live" : "Rules only"} ·{" "}
+          {config?.passwordSet ? "Server password set for the default store" : "No server password"}
+        </p>
       </header>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <Button disabled={running} onClick={() => void run({ mode: "fixture", fixture: "before" })}>
-          Run recorded store
-        </Button>
-        <Button variant="outline" disabled={running} onClick={() => void run({ mode: "fixture", fixture: "after" })}>
-          Run after shipping fix
-        </Button>
-        <Button variant="secondary" disabled={running} onClick={() => void run({ mode: "live", fixture: "before" })}>
-          Run live store
-        </Button>
-      </div>
+      <section className="mt-16">
+        <Eyebrow>Store</Eyebrow>
+        <form
+          className="flex flex-col gap-2 sm:flex-row sm:items-center"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void run({ mode: "live", fixture: "before" })
+          }}
+        >
+          <input
+            aria-label="Store URL"
+            placeholder="yourstore.com"
+            spellCheck={false}
+            value={storeUrl}
+            onChange={(event) => setStoreUrl(event.target.value)}
+            className="h-10 flex-1 rounded-[3px] border border-[#E6E5E0] bg-[#F0EFEB] px-3 font-mono text-[13px] text-[#26251E] outline-none placeholder:text-[#8A8984] focus:border-[#8A8984]"
+          />
+          <input
+            aria-label="Storefront password (optional)"
+            type="password"
+            autoComplete="off"
+            placeholder="Storefront password (optional)"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            className="h-10 rounded-[3px] border border-[#E6E5E0] bg-[#F0EFEB] px-3 text-[13px] text-[#26251E] outline-none placeholder:text-[#8A8984] focus:border-[#8A8984] sm:w-56"
+          />
+          <button
+            type="submit"
+            disabled={running || !storeUrl.trim()}
+            className="h-10 rounded-full bg-[#26251E] px-5 text-[14px] text-[#F7F7F4] disabled:opacity-40"
+          >
+            {running ? "Running…" : "Run audit →"}
+          </button>
+        </form>
+        <p className="mt-3 text-[13px] text-[#8A8984]">
+          Or replay a recording:{" "}
+          <button disabled={running} onClick={() => void run({ mode: "fixture", fixture: "before" })} className="text-[#26251E] underline decoration-[#E6E5E0] underline-offset-4 hover:decoration-[#26251E] disabled:opacity-40">
+            recorded store
+          </button>{" "}
+          ·{" "}
+          <button disabled={running} onClick={() => void run({ mode: "fixture", fixture: "after" })} className="text-[#26251E] underline decoration-[#E6E5E0] underline-offset-4 hover:decoration-[#26251E] disabled:opacity-40">
+            after shipping fix
+          </button>
+        </p>
+      </section>
 
       {error ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Could not finish</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3 text-sm">
-            <p>{error}</p>
-            <Button variant="outline" className="w-fit" onClick={() => void run({ mode: "fixture", fixture: "before" })}>
-              Run the recorded store instead
-            </Button>
-          </CardContent>
-        </Card>
+        <section className="mt-10 rounded-[3px] border border-[#E6E5E0] bg-[#F0EFEB] px-5 py-4 text-[14px]">
+          <p>{error}</p>
+          <button onClick={() => void run({ mode: "fixture", fixture: "before" })} className="mt-2 text-[13px] text-[#F54E00]">
+            Replay the recorded store instead →
+          </button>
+        </section>
       ) : null}
 
-      <div className="grid flex-1 grid-cols-1 gap-4 lg:grid-cols-[280px_minmax(0,1fr)_340px]">
-        <section className="flex flex-col gap-3" aria-label="Shoppers">
+      <section className="mt-20" aria-live="polite">
+        <Eyebrow>Score · {label}</Eyebrow>
+        <div className="flex items-baseline gap-3">
+          <p className="text-[88px] leading-none tracking-[-0.04em] tabular-nums">
+            {report ? report.total : "–"}
+            <span className="text-[#B5B4AE]">/100</span>
+          </p>
+          {delta != null && delta !== 0 ? (
+            <span className="font-mono text-[14px] text-[#F54E00] tabular-nums">
+              {delta > 0 ? "+" : ""}
+              {delta}
+            </span>
+          ) : null}
+        </div>
+        {report ? (
+          <p className="mt-3 font-mono text-[12px] text-[#8A8984]">
+            {report.storeUrl} · run {report.runId} · {report.status}
+          </p>
+        ) : null}
+        {report?.categories?.length ? (
+          <div className="mt-8 border-t border-[#E6E5E0]">
+            {report.categories.map((category) => (
+              <div key={category.id} className="flex items-center justify-between border-b border-[#E6E5E0] py-2 text-[14px]">
+                <span>{category.label}</span>
+                <span className="flex items-center gap-4">
+                  <span className="h-px w-32 bg-[#E6E5E0]">
+                    <span className="block h-px bg-[#26251E]" style={{ width: `${category.score}%` }} />
+                  </span>
+                  <span className="w-14 text-right font-mono text-[12px] text-[#8A8984] tabular-nums">
+                    {category.weighted}/{category.weight}
+                  </span>
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </section>
+
+      <section className="mt-20">
+        <Eyebrow>Shoppers</Eyebrow>
+        <div className="border-t border-[#E6E5E0]">
           {shoppers.map((shopper) => (
-            <Card key={shopper.persona} size="sm">
-              <CardHeader>
-                <div className="flex items-center justify-between gap-2">
-                  <CardTitle className={TONE[shopper.persona]}>{PERSONAS[shopper.persona as PersonaId].label}</CardTitle>
-                  <Badge variant={statusVariant(shopper.status)}>{shopper.status}</Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-1 text-sm">
-                <p className="text-muted-foreground">{shopper.goal}</p>
-                <p>{shopper.step}</p>
-                <p className="text-xs text-muted-foreground">
-                  {shopper.stepsDone} steps
-                  {shopper.missionScore != null ? ` · mission ${shopper.missionScore}` : ""}
-                  {shopper.cartVariantId != null ? ` · variant ${shopper.cartVariantId}` : ""}
+            <div key={shopper.persona} className="grid grid-cols-[140px_1fr_auto] gap-4 border-b border-[#E6E5E0] py-3 text-[14px]">
+              <div>
+                <p>{PERSONAS[shopper.persona as PersonaId].label}</p>
+                <p className="mt-1 flex items-center gap-2 text-[12px] text-[#8A8984]">
+                  <span className={`inline-block size-1.5 rounded-full ${DOT[shopper.status] ?? DOT.idle}`} />
+                  {shopper.status}
                 </p>
-              </CardContent>
-            </Card>
-          ))}
-        </section>
-
-        <section className="flex flex-col gap-4" aria-live="polite">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm text-muted-foreground">Store score</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              <p className="text-6xl font-semibold tabular-nums">{report ? report.total : "–"}</p>
-              <p className="text-sm text-muted-foreground">
-                {report == null
-                  ? "Paste is unnecessary on the recorded store. Live mode uses SHOP_URL and the storefront password from the server."
-                  : `${findingCount} fixes. Shipping is the one-line edit. VIZ titles and returns stay open on purpose.`}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[#8A8984]">{shopper.goal}</p>
+                <p className="mt-1 truncate">
+                  <LogText text={shopper.step} />
+                </p>
+                {report ? (
+                  <p className="mt-1 font-mono text-[11px] text-[#8A8984]">
+                    Shopper/{report.runId}.{shopper.persona}
+                    {shopper.cartVariantId != null ? ` · variant ${shopper.cartVariantId}` : ""}
+                    {shopper.blockerCodes.length ? ` · ${shopper.blockerCodes.join(" ")}` : ""}
+                  </p>
+                ) : null}
+              </div>
+              <p className="text-right font-mono text-[13px] tabular-nums">
+                {shopper.missionScore ?? "–"}
+                <span className="text-[#8A8984]"> · {shopper.stepsDone}</span>
               </p>
-              <div className="flex flex-col gap-2">
-                {(report?.categories ?? []).map((category) => (
-                  <div key={category.id}>
-                    <div className="mb-1 flex justify-between text-xs">
-                      <span>{category.label}</span>
-                      <span className="tabular-nums text-muted-foreground">
-                        {category.weighted}/{category.weight}
-                      </span>
-                    </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                      <div className="h-full bg-foreground" style={{ width: `${category.score}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          ))}
+        </div>
+      </section>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Fixes</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              {report == null ? (
-                <p className="text-sm text-muted-foreground">Findings show up as the report actor records them.</p>
-              ) : report.findings.length === 0 ? (
-                <p className="text-sm">No findings. That would be a surprising store.</p>
-              ) : (
-                report.findings.map((finding) => (
-                  <div key={finding.code} className="flex flex-col gap-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant={finding.severity === "minor" ? "outline" : finding.severity === "blocker" ? "destructive" : "secondary"}>
-                        {finding.severity}
-                      </Badge>
-                      <span className="text-sm font-medium">{finding.summary}</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{finding.fix}</p>
-                    {finding.personas.length > 0 ? (
-                      <p className="text-xs text-muted-foreground">Seen by {finding.personas.join(", ")}</p>
-                    ) : null}
-                    <Separator />
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </section>
+      <section className="mt-20">
+        <Eyebrow>Fixes</Eyebrow>
+        {report == null ? (
+          <p className="text-[14px] text-[#8A8984]">Fixes appear as the report actor records them.</p>
+        ) : report.findings.length === 0 ? (
+          <p className="text-[14px]">No findings.</p>
+        ) : (
+          <ol className="border-t border-[#E6E5E0]">
+            {report.findings.map((finding) => (
+              <li key={finding.code} className="grid grid-cols-[220px_1fr] gap-4 border-b border-[#E6E5E0] py-4 text-[14px]">
+                <div>
+                  <p className="font-mono text-[12px]">{finding.code}</p>
+                  <p className="mt-1 text-[12px] text-[#8A8984]">
+                    {finding.severity}
+                    {finding.personas.length ? ` · ${finding.personas.join(", ")}` : ""}
+                  </p>
+                </div>
+                <div>
+                  <p>{finding.summary}</p>
+                  <p className="mt-1 text-[#8A8984]">{finding.fix}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
 
-        <Card className="min-h-80 lg:min-h-0">
-          <CardHeader>
-            <CardTitle>#floor and #findings</CardTitle>
-          </CardHeader>
-          <CardContent className="min-h-0 flex-1">
-            <ScrollArea className="h-[28rem] lg:h-[calc(100vh-14rem)]">
-              <div ref={logRef} className="flex flex-col gap-3 pr-3" role="log" aria-label="Relay messages">
-                {messages.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Shoppers talk here. Findings are JSON so the report actor can record them once.</p>
-                ) : (
-                  messages.map((message) => (
-                    <p key={message.id} className="text-sm leading-snug">
-                      <span className="mr-2 text-xs text-muted-foreground">#{message.channel}</span>
-                      <span className={`font-medium ${TONE[message.from] ?? ""}`}>{message.from}</span>
-                      <span className="text-muted-foreground"> · </span>
-                      {message.text}
-                    </p>
-                  ))
-                )}
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
-      </div>
+      <section className="mt-20">
+        <Eyebrow>Feed · #floor and #findings</Eyebrow>
+        <div
+          ref={logRef}
+          role="log"
+          aria-label="Relay messages"
+          className="max-h-[480px] overflow-y-auto rounded-[3px] border border-[#E6E5E0] bg-[#F0EFEB] px-4 py-3"
+        >
+          {messages.length === 0 ? (
+            <p className="font-mono text-[12px] text-[#8A8984]">Waiting for a run.</p>
+          ) : (
+            messages.map((message) => (
+              <p key={message.id} className="grid grid-cols-[56px_96px_1fr] gap-3 py-[3px] text-[13px] leading-snug">
+                <span className="font-mono text-[11px] text-[#8A8984] tabular-nums">{relTime(message.at, startedAt)}</span>
+                <span className="font-mono text-[11px] text-[#8A8984]">
+                  {message.channel === "findings" ? "#findings" : message.from}
+                </span>
+                <span className={message.channel === "findings" ? "font-mono text-[12px] text-[#8A8984]" : ""}>
+                  {message.channel === "findings" ? message.text : <LogText text={message.text} />}
+                </span>
+              </p>
+            ))
+          )}
+        </div>
+      </section>
     </main>
   )
 }

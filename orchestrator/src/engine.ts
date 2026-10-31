@@ -7,8 +7,8 @@ import {
   type ReportView,
   type ShopperView,
 } from "@readiness/protocol"
-import { actorsEnabled, driveShoppers } from "./actors.ts"
-import { loadSnapshot, shopPersona, shopUrlFromEnv, storefrontPasswordFromEnv, type ShopAnnouncement } from "@readiness/shop"
+import { actorsEnabled, driveShoppers } from "./actors.js"
+import { envPasswordFor, normalizeStoreUrl, loadSnapshot, shopPersona, shopUrlFromEnv, storefrontPasswordFromEnv, type ShopAnnouncement } from "@readiness/shop"
 
 export interface RelayNote {
   id: string
@@ -30,6 +30,8 @@ export interface RunRequest {
   mode: "fixture" | "live"
   fixture: "before" | "after"
   storeUrl?: string
+  /** Visitor-supplied storefront password. Overrides the env; never logged or emitted. */
+  storefrontPassword?: string
   stepMs?: number
   /** `auto` mirrors to Agent Relay when RELAY_WORKSPACE_KEY is set. */
   relay?: "local" | "auto"
@@ -68,22 +70,31 @@ function idleView(persona: PersonaId): ShopperView {
 
 export async function* runAudit(request: RunRequest): AsyncGenerator<RunEvent> {
   const stepMs = request.stepMs ?? 0
-  const storeUrl = request.mode === "live" ? request.storeUrl || shopUrlFromEnv() : "https://aiconvertit-demo.myshopify.com"
+  let storeUrl = "https://aiconvertit-demo.myshopify.com"
+  if (request.mode === "live") {
+    try {
+      storeUrl = normalizeStoreUrl(request.storeUrl || shopUrlFromEnv())
+    } catch (error) {
+      yield { type: "error", message: error instanceof Error ? error.message : "That store URL is not valid." }
+      return
+    }
+  }
+  const password = request.storefrontPassword?.trim() || envPasswordFor(storeUrl)
   const mirror = request.relay === "auto" ? await connectMirror() : null
   yield { type: "meta", relay: mirror ? "agent-relay" : "local", storeUrl }
 
   let snapshot
   try {
-    snapshot = await loadSnapshot({ mode: request.mode, fixture: request.fixture, storeUrl })
+    snapshot = await loadSnapshot({ mode: request.mode, fixture: request.fixture, storeUrl, password })
   } catch (error) {
     yield { type: "error", message: error instanceof Error ? error.message : "The store could not be read." }
     return
   }
 
-  if (request.mode === "live" && snapshot.evidence.http.passwordWall && !storefrontPasswordFromEnv()) {
+  if (request.mode === "live" && snapshot.evidence.http.passwordWall && !password) {
     yield {
       type: "error",
-      message: "This dev store is password-gated. Set SHOP_STOREFRONT_PASSWORD and run again. The password is not in the repo.",
+      message: "This store is password-protected. Enter its storefront password and run again.",
     }
     return
   }
@@ -91,14 +102,26 @@ export async function* runAudit(request: RunRequest): AsyncGenerator<RunEvent> {
   if (snapshot.evidence.http.passwordWall) {
     yield {
       type: "error",
-      message: "The storefront password was rejected. Check SHOP_STOREFRONT_PASSWORD.",
+      message: "The storefront password was rejected.",
+    }
+    return
+  }
+
+  if (request.mode === "live" && snapshot.evidence.http.unreachable) {
+    yield { type: "error", message: `${storeUrl} did not respond. Check the URL and try again.` }
+    return
+  }
+  if (request.mode === "live" && snapshot.products.length === 0) {
+    yield {
+      type: "error",
+      message: `${storeUrl} is not a Shopify store yet: it has no public /products.json catalog, so the shoppers have nothing to read. Try a Shopify storefront URL.`,
     }
     return
   }
 
   const runId = crypto.randomUUID().slice(0, 8)
   if (request.mode === "live" && actorsEnabled()) {
-    yield* runViaActors(runId, storeUrl, snapshot, mirror, stepMs)
+    yield* runViaActors(runId, storeUrl, snapshot, mirror, stepMs, request.storefrontPassword?.trim() || undefined)
     return
   }
   const journal = new ReportJournal()
@@ -202,7 +225,7 @@ async function connectMirror(): Promise<RelayMirror | null> {
   if (!process.env.RELAY_WORKSPACE_KEY?.trim()) return null
   try {
     const connected = await Promise.race([
-      import("./relay.ts").then((mod) => mod.connectRelay(async () => undefined)),
+      import("./relay.js").then((mod) => mod.connectRelay(async () => undefined)),
       sleep(45_000).then(() => {
         throw new Error("Relay timed out")
       }),
@@ -245,6 +268,7 @@ async function* runViaActors(
   snapshot: Awaited<ReturnType<typeof loadSnapshot>>,
   mirror: RelayMirror | null,
   stepMs: number,
+  password: string | undefined,
 ): AsyncGenerator<RunEvent> {
   const { missions: _m, storeUrl: _s, ...storefront } = snapshot.evidence
   yield* say(
@@ -254,7 +278,7 @@ async function* runViaActors(
   )
   let last: ReportView | null = null
   try {
-    for await (const tick of driveShoppers(runId, storeUrl, storefront)) {
+    for await (const tick of driveShoppers(runId, storeUrl, storefront, password)) {
       if (tick.kind === "report") {
         last = tick.report
         yield { type: "report", report: tick.report }

@@ -17,6 +17,7 @@ export async function* driveShoppers(
   runId: string,
   storeUrl: string,
   storefront: Parameters<actors.StoreReport.Stub["open"]>[2],
+  password?: string,
 ): AsyncGenerator<ActorTick | { kind: "report"; report: ReportView }> {
   const report = actors.StoreReport.get(runId)
   yield { kind: "report", report: await report.open(runId, storeUrl, storefront) }
@@ -29,7 +30,7 @@ export async function* driveShoppers(
     seen.set(persona, 0)
     pending.set(
       persona,
-      stub.shop().then(
+      stub.shop(password ?? null).then(
         (mission) => ({ persona, mission }),
         (error) => ({ persona, error: error instanceof Error ? error.message : String(error) }),
       ),

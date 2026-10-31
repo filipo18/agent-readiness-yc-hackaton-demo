@@ -20,5 +20,6 @@ export { DEFAULT_SHOP_URL, shopUrlFromEnv, storefrontPasswordFromEnv } from "./e
 export { passwordUnlockSucceeded, scrapeAuthenticityToken, storefrontPasswordBody } from "./password.js"
 export { fixtureProducts, fixtureSnapshot } from "./fixture.js"
 export { experimentRatio, isExperimentTitle, isGhost18, SPEC_SIZE } from "./catalog.js"
-export { loadSnapshot } from "./load.js"
+export { envPasswordFor, loadSnapshot } from "./load.js"
 export { shopPersona, type ShopAnnouncement, type ShopOutcome } from "./mission.js"
+export { normalizeStoreUrl } from "./shopify.js"

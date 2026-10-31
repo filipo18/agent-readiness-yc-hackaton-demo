@@ -76,7 +76,8 @@ export class Shopper extends Actor<Watcher, Incoming, Outgoing> {
    * to StoreReport. This method does not write the shared score.
    */
   @Interleave
-  async shop(): Promise<MissionEvidence> {
+  /** `password` is an RPC argument only: never persisted, emitted, or logged. */
+  async shop(password: string | null = null): Promise<MissionEvidence> {
     void this.relayToken
     this.view = { ...this.view, status: "running", step: "Opening the store" }
     this.alarm.set(Date.now() + 90_000)
@@ -86,6 +87,7 @@ export class Shopper extends Actor<Watcher, Incoming, Outgoing> {
       mode,
       fixture,
       storeUrl: this.storeUrl || shopUrlFromEnv(),
+      password: password ?? undefined,
     })
     const outcome = await shopPersona({
       persona: this.view.persona,
