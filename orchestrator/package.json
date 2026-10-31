@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/engine.ts"
+    ".": "./src/engine.ts",
+    "./fixer": "./src/fixer.ts"
   },
   "scripts": {
     "start": "bun src/main.ts",

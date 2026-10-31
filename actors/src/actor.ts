@@ -144,6 +144,8 @@ export class Shopper extends Actor<Watcher, Incoming, Outgoing> {
  * Single writer for the store score. No `@Interleave`: shoppers call
  * `submitMission` and the mailbox runs those writes one at a time.
  */
+export { Fixer } from "./fixer.js"
+
 export class StoreReport extends Actor<Watcher, Incoming, Outgoing> {
   @Persisted @Emittable report: ReportView = {
     runId: "",
