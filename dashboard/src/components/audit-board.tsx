@@ -172,7 +172,8 @@ export function AuditBoard() {
     <nav className="border-b border-[#E6E5E0]">
       <div className="mx-auto flex h-14 max-w-[880px] items-center gap-6 px-6">
         <span className="text-[18px] font-semibold tracking-[-0.03em]">tiebreaks.</span>
-        <span className="text-[13px] text-[#8A8984]">Audit your store</span>
+        <a href="/" aria-current="page" className="text-[13px] text-[#26251E]">Audit your store</a>
+        <a href="/fix" className="text-[13px] text-[#8A8984] hover:text-[#26251E]">Fix with agent</a>
         <span className="ml-auto rounded-[4px] border border-[#E6E5E0] px-2 py-1 text-[10px] uppercase tracking-[0.08em] text-[#8A8984]">Five agent shoppers</span>
       </div>
     </nav>
@@ -182,10 +183,6 @@ export function AuditBoard() {
         <h1 className="max-w-[640px] text-[28px] leading-[1.2] tracking-[-0.02em]">
           Can AI agents buy from your store? <span className="text-[#8A8984]">Five shoppers try. The rubric scores.</span>
         </h1>
-        <p className="mt-4 text-[13px] text-[#8A8984]">
-          {relayLabel} · {config?.openai ? "Model on for live" : "Rules only"} ·{" "}
-          {config?.passwordSet ? "Server password set for the default store" : "No server password"}
-        </p>
       </header>
 
       <section className="mt-16">

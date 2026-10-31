@@ -75,7 +75,7 @@ export function adminShopHost(storeUrl: string): string {
   return url.hostname.toLowerCase()
 }
 
-export function shouldDryRun(env: NodeJS.ProcessEnv = process.env): boolean {
+export function shouldDryRun(env: Record<string, string | undefined> = (globalThis as any).process.env): boolean {
   return !env.SHOPIFY_CLIENT_ID?.trim() || !env.SHOPIFY_CLIENT_SECRET?.trim()
 }
 
@@ -97,7 +97,7 @@ export function clearAdminTokenCache(): void {
 export type AdminFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
 
 export interface TokenDeps {
-  env?: NodeJS.ProcessEnv
+  env?: Record<string, string | undefined>
   fetch?: AdminFetch
 }
 
@@ -116,7 +116,7 @@ export async function adminAccessToken(shop: string, deps: TokenDeps = {}): Prom
 }
 
 async function mintAdminToken(shop: string, deps: TokenDeps): Promise<string> {
-  const env = deps.env ?? process.env
+  const env = deps.env ?? (globalThis as any).process.env
   const clientId = env.SHOPIFY_CLIENT_ID?.trim()
   const clientSecret = env.SHOPIFY_CLIENT_SECRET?.trim()
   if (!clientId || !clientSecret) throw new Error("SHOPIFY_CLIENT_ID and SHOPIFY_CLIENT_SECRET are not set")
@@ -151,7 +151,7 @@ function dropAdminToken(shop: string): void {
 }
 
 /** Builds the Admin client. Each call uses the cached client-credentials token. */
-export function adminGraphqlFromEnv(shop: string, env: NodeJS.ProcessEnv = process.env): AdminGraphql {
+export function adminGraphqlFromEnv(shop: string, env: Record<string, string | undefined> = (globalThis as any).process.env): AdminGraphql {
   return async (query, variables) => {
     const send = async (token: string) => {
       const response = await fetch(`https://${shop}/admin/api/${ADMIN_API_VERSION}/graphql.json`, {

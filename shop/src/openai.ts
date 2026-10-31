@@ -8,7 +8,7 @@ export interface ModelPick {
 }
 
 export async function askModel(persona: PersonaId, products: ShopifyProduct[]): Promise<ModelPick | null> {
-  const key = process.env.OPENAI_API_KEY?.trim()
+  const key = (globalThis as any).process.env.OPENAI_API_KEY?.trim()
   if (!key) return null
   const catalog = products.slice(0, 40).map((product) => ({
     handle: product.handle,
@@ -17,7 +17,7 @@ export async function askModel(persona: PersonaId, products: ShopifyProduct[]): 
     options: product.options.map((option) => ({ name: option.name, values: option.values.slice(0, 12) })),
     price: product.variants.find((variant) => variant.available)?.price ?? null,
   }))
-  const model = process.env.OPENAI_MODEL?.trim() || "gpt-4.1-mini"
+  const model = (globalThis as any).process.env.OPENAI_MODEL?.trim() || "gpt-4.1-mini"
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",

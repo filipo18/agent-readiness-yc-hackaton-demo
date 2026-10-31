@@ -130,7 +130,8 @@ export function FixerBoard() {
             <a href="/" className="text-[22px] font-semibold tracking-[-0.04em]">
               tiebreaks.
             </a>
-            <span className="text-[15px]">Improve your store</span>
+            <a href="/" className="text-[13px] text-[#8A8984] hover:text-[#26251E]">Audit your store</a>
+            <a href="/fix" aria-current="page" className="text-[13px] text-[#26251E]">Fix with agent</a>
           </div>
           <span className="rounded-full border border-[#E6E5E0] px-3 py-1 text-[11px] tracking-[0.08em] text-[#8A8984]">
             {dry ? "DRY RUN · NO CREDENTIALS" : "SHOPIFY ADMIN"}

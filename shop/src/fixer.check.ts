@@ -9,9 +9,9 @@ function assert(condition: unknown, message: string): asserts condition {
 
 const scopes = ["write_products", "write_legal_policies"]
 assert(ADMIN_SCOPES.join() === scopes.join(), "scope list drifted")
-assert(shouldDryRun({} as NodeJS.ProcessEnv), "missing credentials should dry-run")
-assert(shouldDryRun({ SHOPIFY_CLIENT_ID: "id" } as NodeJS.ProcessEnv), "client id alone should dry-run")
-assert(!shouldDryRun({ SHOPIFY_CLIENT_ID: "id", SHOPIFY_CLIENT_SECRET: "secret" } as NodeJS.ProcessEnv), "client credentials are the live path")
+assert(shouldDryRun({} as Record<string, string | undefined>), "missing credentials should dry-run")
+assert(shouldDryRun({ SHOPIFY_CLIENT_ID: "id" } as Record<string, string | undefined>), "client id alone should dry-run")
+assert(!shouldDryRun({ SHOPIFY_CLIENT_ID: "id", SHOPIFY_CLIENT_SECRET: "secret" } as Record<string, string | undefined>), "client credentials are the live path")
 assert(policyValid("shipping", FALLBACK_SHIPPING), "fallback shipping misses the rubric")
 assert(policyValid("refund", FALLBACK_REFUND), "fallback refund misses the rubric")
 
@@ -26,11 +26,11 @@ const ignored = collectFindings({
 assert(ignored.map((item) => item.code).join() === "SHIPPING_ETA_MISSING,RETURNS_POLICY_MISSING", "finding merge failed")
 
 const badFetch = async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ text: "We ship things." }) } }] }), { status: 200 })
-const fellBack = await draftPolicy("shipping", "We ship worldwide.", { fetch: badFetch, env: { OPENAI_API_KEY: "sk-test" } as NodeJS.ProcessEnv })
+const fellBack = await draftPolicy("shipping", "We ship worldwide.", { fetch: badFetch, env: { OPENAI_API_KEY: "sk-test" } as Record<string, string | undefined> })
 assert(fellBack.source === "fallback" && fellBack.text === FALLBACK_SHIPPING, "invalid model copy should fall back")
 const goodFetch = async () =>
   new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ text: "Flat rate $8. Arrives in 2-4 business days." }) } }] }), { status: 200 })
-const drafted = await draftPolicy("shipping", null, { fetch: goodFetch, env: { OPENAI_API_KEY: "sk-test" } as NodeJS.ProcessEnv })
+const drafted = await draftPolicy("shipping", null, { fetch: goodFetch, env: { OPENAI_API_KEY: "sk-test" } as Record<string, string | undefined> })
 assert(drafted.source === "openai" && drafted.text.includes("$8"), "valid model copy should be kept")
 
 const dry = await FixerEngine.open({ storeUrl: "https://aiconvertit-demo.myshopify.com" })
@@ -196,7 +196,7 @@ assert(drifted.includes("shipping policy"), "drift check should notice a policy 
 clearAdminTokenCache()
 let tokenFetches = 0
 let shortToken = false
-const tokenEnv = { SHOPIFY_CLIENT_ID: "app-id", SHOPIFY_CLIENT_SECRET: "app-secret" } as NodeJS.ProcessEnv
+const tokenEnv = { SHOPIFY_CLIENT_ID: "app-id", SHOPIFY_CLIENT_SECRET: "app-secret" } as Record<string, string | undefined>
 const tokenFetch = async (url: RequestInfo | URL, init?: RequestInit) => {
   tokenFetches += 1
   const body = String(init?.body ?? "")

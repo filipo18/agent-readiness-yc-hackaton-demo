@@ -308,10 +308,10 @@ export class FixerEngine {
     relayMessages?: RelayMessageInput[]
     /** Tests inject a port. Production uses the token, or the memory port when it is missing. */
     port?: Port
-    env?: NodeJS.ProcessEnv
+    env?: Record<string, string | undefined>
     sessionId?: string
   }): Promise<FixerEngine> {
-    const env = input.env ?? process.env
+    const env = input.env ?? (globalThis as any).process.env
     const storeUrl = (input.storeUrl?.trim() || env.SHOP_URL || "https://aiconvertit-demo.myshopify.com").replace(/\/$/, "")
     const shop = adminShopHost(storeUrl)
     const dryRun = input.port ? input.port.dryRun : shouldDryRun(env)
@@ -357,7 +357,7 @@ export class FixerEngine {
     return new FixerEngine(blob, port)
   }
 
-  static hydrate(blob: FixerBlob, env: NodeJS.ProcessEnv = process.env): FixerEngine {
+  static hydrate(blob: FixerBlob, env: Record<string, string | undefined> = (globalThis as any).process.env): FixerEngine {
     const port = blob.dryRun ? new MemoryPort(blob.shop) : new LivePort(adminGraphqlFromEnv(blob.shop, env), blob.shop)
     return new FixerEngine(structuredClone(blob), port)
   }

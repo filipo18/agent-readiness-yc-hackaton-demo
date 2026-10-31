@@ -20,9 +20,9 @@ type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Respo
 export async function draftPolicy(
   kind: PolicyKind,
   current: string | null,
-  deps?: { fetch?: FetchLike; env?: NodeJS.ProcessEnv },
+  deps?: { fetch?: FetchLike; env?: Record<string, string | undefined> },
 ): Promise<PolicyDraft> {
-  const env = deps?.env ?? process.env
+  const env = deps?.env ?? (globalThis as any).process.env
   const key = env.OPENAI_API_KEY?.trim()
   const fallback = kind === "shipping" ? FALLBACK_SHIPPING : FALLBACK_REFUND
   if (!key) return { text: fallback, source: "fallback" }

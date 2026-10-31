@@ -1,11 +1,12 @@
 import { Actor, Compute, Emittable, Interleave, Persisted, type ActorSocket } from "terse-sdk/actor"
-import {
-  FixerEngine,
-  type FindingInput,
-  type FixerBlob,
-  type FixerView,
-  type RelayMessageInput,
-} from "@readiness/shop"
+import { FixerEngine } from "@readiness/shop"
+
+// Public actor types stay local plain JSON so the dts compiler never walks shop/src.
+type Json = string | number | boolean | null | Json[] | { [k: string]: Json }
+type FindingInput = { [k: string]: Json }
+type RelayMessageInput = { [k: string]: Json }
+type FixerBlob = { [k: string]: Json }
+type FixerView = { [k: string]: Json }
 
 type Watcher = { watcher: string }
 type Incoming = { type: "ping" }
@@ -42,34 +43,34 @@ export class Fixer extends Actor<Watcher, Incoming, Outgoing> {
 
   @Interleave
   async open(input: { storeUrl?: string; sessionId?: string; findings?: FindingInput[]; relayMessages?: RelayMessageInput[] } = {}): Promise<FixerView> {
-    return this.commit(await FixerEngine.open(input))
+    return commitTo(this, await FixerEngine.open(input as any))
   }
 
   async approve(id: string, approved: boolean): Promise<FixerView> {
-    const engine = this.engine()
+    const engine = hydrate(this)
     engine.approve(id, approved)
-    return this.commit(engine)
+    return commitTo(this, engine)
   }
 
   @Interleave
   async apply(): Promise<FixerView> {
-    const engine = this.engine()
+    const engine = hydrate(this)
     await engine.apply()
-    return this.commit(engine)
+    return commitTo(this, engine)
   }
 
   @Interleave
   async revert(): Promise<FixerView> {
-    const engine = this.engine()
+    const engine = hydrate(this)
     await engine.revert()
-    return this.commit(engine)
+    return commitTo(this, engine)
   }
 
   @Interleave
   async rerun(): Promise<FixerView> {
-    const engine = this.engine()
+    const engine = hydrate(this)
     await engine.rerun()
-    return this.commit(engine)
+    return commitTo(this, engine)
   }
 
   async current(): Promise<FixerView> {
@@ -77,20 +78,21 @@ export class Fixer extends Actor<Watcher, Incoming, Outgoing> {
   }
 
   async onConnect(socket: Socket): Promise<void> {
-    const line = this.view.floor.at(-1)
+    const line = (this.view.floor as string[] | undefined)?.at(-1)
     if (line) socket.send({ type: "log", line })
   }
 
-  private engine(): FixerEngine {
-    if (!this.blob) throw new Error("Fixer is not open")
-    return FixerEngine.hydrate(this.blob)
-  }
+}
 
-  private commit(engine: FixerEngine): FixerView {
-    this.blob = engine.serialize()
-    this.view = engine.view()
-    const line = this.view.floor.at(-1)
-    if (line) this.broadcast({ type: "log", line })
-    return this.view
-  }
+function hydrate(self: any): FixerEngine {
+  if (!self.blob) throw new Error("Fixer is not open")
+  return FixerEngine.hydrate(self.blob)
+}
+
+function commitTo(self: any, engine: FixerEngine): FixerView {
+  self.blob = engine.serialize() as unknown as FixerBlob
+  self.view = engine.view() as unknown as FixerView
+  const line = (self.view.floor as string[] | undefined)?.at(-1)
+  if (line) self.broadcast({ type: "log", line })
+  return self.view
 }

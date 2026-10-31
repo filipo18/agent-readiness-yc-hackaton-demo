@@ -10,5 +10,8 @@
     "@readiness/protocol": "workspace:*",
     "@readiness/shop": "workspace:*",
     "terse-sdk": "^0.14.9"
+  },
+  "devDependencies": {
+    "terse-cli": "0.14.9"
   }
 }
