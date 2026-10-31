@@ -101,7 +101,7 @@ export function FixerBoard() {
   }
 
   const applied = view?.phase === "applied"
-  const dry = view?.dryRun !== false
+  const dry = view?.dryRun === true
   const price = view?.product?.price ?? "152.00"
   const handle = view?.product?.handle ?? "brooks-mens-ghost-18-running-shoes"
   const shop = view?.shop ?? "aiconvertit-demo.myshopify.com"
@@ -128,7 +128,6 @@ export function FixerBoard() {
         <div className="mx-auto flex h-14 max-w-[1280px] items-center gap-6 px-6">
           <a href="/" className="text-[18px] font-semibold tracking-[-0.03em]">tiebreaks.</a>
           <a href="/" className="text-[13px] text-[#8A8984] hover:text-[#26251E]">Audit your store</a>
-          <a href="/fix" aria-current="page" className="text-[13px] text-[#26251E]">Fix with agent</a>
           <span className="ml-auto rounded-[4px] border border-[#E6E5E0] px-2 py-1 text-[10px] uppercase tracking-[0.08em] text-[#8A8984]">{dry ? "DRY RUN · NO CREDENTIALS" : "SHOPIFY ADMIN"}</span>
         </div>
       </nav>

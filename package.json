@@ -2,7 +2,13 @@
   "name": "agent-readiness",
   "private": true,
   "type": "module",
-  "workspaces": ["packages/*", "actors", "shop", "orchestrator", "dashboard"],
+  "workspaces": [
+    "packages/*",
+    "actors",
+    "shop",
+    "orchestrator",
+    "dashboard"
+  ],
   "devDependencies": {
     "bun-types": "^1.4.4",
     "typescript": "^5.9.3"
@@ -16,6 +22,7 @@
     "dashboard": "bun run --cwd dashboard dev",
     "actors": "bun run --cwd actors dev",
     "orchestrator": "bun run --cwd orchestrator start",
-    "live": "bun run --cwd orchestrator live"
+    "live": "bun run --cwd orchestrator live",
+    "reset-store": "bun shop/scripts/reset-store.ts"
   }
 }
