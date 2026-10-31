@@ -7,7 +7,8 @@
     ".": "./src/engine.ts"
   },
   "scripts": {
-    "start": "bun src/main.ts"
+    "start": "bun src/main.ts",
+    "live": "bun src/live.ts"
   },
   "dependencies": {
     "@agent-relay/sdk": "^15.0.1",

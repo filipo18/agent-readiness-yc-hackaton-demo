@@ -14,6 +14,7 @@
     "demo": "bun orchestrator/src/demo.ts",
     "dashboard": "bun run --cwd dashboard dev",
     "actors": "bun run --cwd actors dev",
-    "orchestrator": "bun run --cwd orchestrator start"
+    "orchestrator": "bun run --cwd orchestrator start",
+    "live": "bun run --cwd orchestrator live"
   }
 }
