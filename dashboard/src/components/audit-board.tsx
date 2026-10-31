@@ -186,6 +186,25 @@ function FixesPanel({ report, messages, onRerun }: { report: ReportView; message
       setBusy(null)
     }
   }
+  async function applyAll() {
+    if (!state) return
+    setBusy("all")
+    setErr(null)
+    try {
+      let next = state
+      for (const p of state.proposals) {
+        if (!p.writes || p.status === "applied") continue
+        next = await fixerCall({ action: "approve", sessionId: state.sessionId, proposalId: p.id, approved: true })
+      }
+      next = await fixerCall({ action: "apply", sessionId: state.sessionId })
+      setState(next)
+      if (next.error) setErr(next.error)
+    } catch (e) {
+      setErr((e as Error).message)
+    } finally {
+      setBusy(null)
+    }
+  }
   async function revert() {
     if (!state) return
     setBusy("revert")
@@ -203,9 +222,20 @@ function FixesPanel({ report, messages, onRerun }: { report: ReportView; message
   const anyApplied = writable.some((p) => p.status === "applied")
   return (
     <div className="mt-6 border-t border-[#E6E5E0] pt-6">
-      <p className="mb-3 text-[11px] uppercase tracking-[0.08em] text-[#8A8984]">
-        Potential fixes · {state.dryRun ? "dry run, nothing is written" : "writes to your Shopify store"}
-      </p>
+      <div className="mb-3 flex items-center justify-between gap-4">
+        <p className="text-[11px] uppercase tracking-[0.08em] text-[#8A8984]">
+          Potential fixes · {state.dryRun ? "dry run, nothing is written" : "writes to your Shopify store"}
+        </p>
+        {writable.some((p) => p.status !== "applied") ? (
+          <button
+            disabled={busy != null}
+            onClick={() => void applyAll()}
+            className="h-8 shrink-0 rounded-[6px] border border-[#14130F] px-3 text-[13px] text-[#14130F] disabled:opacity-40"
+          >
+            {busy === "all" ? "Applying all…" : "Apply all"}
+          </button>
+        ) : null}
+      </div>
       {writable.length === 0 ? <p className="text-[14px] text-[#8A8984]">No fixes the agent can write for this store.</p> : null}
       <ul className="border-t border-[#E6E5E0]">
         {writable.map((p) => (
