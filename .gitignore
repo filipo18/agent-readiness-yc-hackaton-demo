@@ -1,0 +1,12 @@
+node_modules
+.bun
+.env
+.env.local
+.env.*.local
+.durable-actors
+dist
+.next
+*.tsbuildinfo
+orchestrator/src/generated
+.DS_Store
+agent-tools

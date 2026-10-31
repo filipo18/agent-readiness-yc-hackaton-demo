@@ -1,0 +1,75 @@
+{
+  "storeUrl": "https://haunted-hacks-demo.myshopify.com",
+  "http": {
+    "productsJsonOk": true,
+    "searchOk": true,
+    "robotsBlocksAgents": false,
+    "productJsonLd": false,
+    "passwordWall": false,
+    "unreachable": false
+  },
+  "catalog": {
+    "productCount": 6,
+    "pricedRatio": 1,
+    "imagedRatio": 1
+  },
+  "policies": {
+    "shippingText": "Flat rate $6. Free shipping over $75. Arrives in 3–5 business days.",
+    "refundText": null,
+    "shippingPriceDisclosed": true,
+    "shippingEtaDisclosed": true,
+    "refundWindowDays": null
+  },
+  "checkout": {
+    "attempted": true,
+    "reached": true,
+    "botWall": false
+  },
+  "missions": [
+    {
+      "persona": "bargain",
+      "matchedVariant": false,
+      "colorInText": false,
+      "sizeSelectable": true,
+      "cartAccepted": false,
+      "steps": 5,
+      "abandoned": true
+    },
+    {
+      "persona": "gift",
+      "matchedVariant": true,
+      "colorInText": true,
+      "sizeSelectable": true,
+      "cartAccepted": true,
+      "steps": 4,
+      "abandoned": false
+    },
+    {
+      "persona": "spec",
+      "matchedVariant": true,
+      "colorInText": true,
+      "sizeSelectable": true,
+      "cartAccepted": true,
+      "steps": 4,
+      "abandoned": false
+    },
+    {
+      "persona": "impatient",
+      "matchedVariant": true,
+      "colorInText": true,
+      "sizeSelectable": true,
+      "cartAccepted": true,
+      "steps": 6,
+      "abandoned": false
+    },
+    {
+      "persona": "returns",
+      "matchedVariant": true,
+      "colorInText": true,
+      "sizeSelectable": true,
+      "cartAccepted": false,
+      "steps": 3,
+      "abandoned": true
+    }
+  ]
+}

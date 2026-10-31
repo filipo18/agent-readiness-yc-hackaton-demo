@@ -1,0 +1,14 @@
+{
+  "name": "@readiness/actors",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "terse actor dev --port 7100"
+  },
+  "dependencies": {
+    "@readiness/protocol": "workspace:*",
+    "@readiness/shop": "workspace:*",
+    "terse-sdk": "^0.14.9"
+  }
+}
