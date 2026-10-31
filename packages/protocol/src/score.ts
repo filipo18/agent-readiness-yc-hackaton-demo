@@ -129,6 +129,9 @@ export function deriveFindings(evidence: StoreEvidence): Finding[] {
   if (evidence.http.robotsBlocksAgents) pushFinding(findings, "ROBOTS_BLOCKS_AGENTS", [])
   if (evidence.catalog.pricedRatio < 1) pushFinding(findings, "PRICE_MISSING", [])
   if (evidence.catalog.imagedRatio < 1) pushFinding(findings, "IMAGE_MISSING", [])
+  if (clamp01(evidence.catalog.experimentRatio ?? 0) >= 0.2) {
+    pushFinding(findings, "EXPERIMENT_TITLES", ["impatient", "bargain"])
+  }
 
   const colorMiss = personasWhere(
     evidence,
@@ -193,10 +196,11 @@ export function scoreStore(evidence: StoreEvidence): StoreScore {
     (evidence.http.productJsonLd ? 20 : 0) +
     (evidence.http.robotsBlocksAgents ? 0 : 15)
 
-  const catalog =
+  const catalogBase =
     evidence.catalog.productCount === 0
       ? 0
       : clamp01(evidence.catalog.pricedRatio) * 60 + clamp01(evidence.catalog.imagedRatio) * 40
+  const catalog = catalogBase * (1 - 0.4 * clamp01(evidence.catalog.experimentRatio ?? 0))
 
   const categories = [
     category("discoverability", discoverability),

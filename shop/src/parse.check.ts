@@ -1,3 +1,4 @@
+import { passwordUnlockSucceeded, scrapeAuthenticityToken, storefrontPasswordBody } from "./password.ts"
 import { disclosesShippingEta, disclosesShippingPrice, parseProductsJson, refundWindowDays } from "./shopify.ts"
 
 const products = parseProductsJson({
@@ -32,6 +33,20 @@ if (!disclosesShippingPrice(fixed) || !disclosesShippingEta(fixed)) {
 }
 if (refundWindowDays("Returns accepted within 30 days of delivery.") !== 30) {
   throw new Error("refund window parser failed")
+}
+
+const form = storefrontPasswordBody("s3cret", "tok+1")
+if (!form.includes("form_type=storefront_password")) throw new Error("missing form_type")
+if (!form.includes("utf8=%E2%9C%93")) throw new Error("utf8 checkmark was not encoded")
+if (!form.includes("password=s3cret")) throw new Error("password field missing")
+if (!form.includes("authenticity_token=tok%2B1")) throw new Error("token was not encoded")
+const html = '<input type="hidden" name="authenticity_token" value="abc==" />'
+if (scrapeAuthenticityToken(html) !== "abc==") throw new Error("token scrape failed")
+if (!passwordUnlockSucceeded(302, "https://aiconvertit-demo.myshopify.com/", "")) {
+  throw new Error("302 off the password page should unlock")
+}
+if (passwordUnlockSucceeded(302, "https://aiconvertit-demo.myshopify.com/password", "")) {
+  throw new Error("302 back to /password is a rejected password")
 }
 
 console.log("shop parsers ok")

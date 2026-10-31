@@ -10,6 +10,7 @@ export const FINDING_CODES = [
   "IMAGE_MISSING",
   "VARIANT_SPEC_UNMATCHED",
   "COLOR_NOT_IN_TEXT",
+  "EXPERIMENT_TITLES",
   "SIZE_OPTION_MISSING",
   "CART_ADD_FAILED",
   "SHIPPING_HIDDEN_UNTIL_CHECKOUT",
@@ -43,8 +44,8 @@ export const FIX_COPY: Record<FindingCode, { severity: FindingSeverity; summary:
   },
   STORE_PASSWORD_WALL: {
     severity: "blocker",
-    summary: "The storefront is behind a password page.",
-    fix: "Disable the storefront password before expecting agents to shop. A password wall is a zero for agent readiness.",
+    summary: "The storefront password blocked the audit.",
+    fix: "Set SHOP_STOREFRONT_PASSWORD so this dev store can be entered. A public store should turn the password page off. Agents without the password stop here.",
   },
   PRODUCTS_JSON_MISSING: {
     severity: "blocker",
@@ -84,7 +85,12 @@ export const FIX_COPY: Record<FindingCode, { severity: FindingSeverity; summary:
   COLOR_NOT_IN_TEXT: {
     severity: "major",
     summary: "Color is not in the product title, tags, or option values.",
-    fix: "Put the color in the title and in a Color option. A blue hoodie that is only blue in the photo is invisible to an agent.",
+    fix: "Put the color in the title and in a Color option. A color that exists only in the photo is invisible to an agent.",
+  },
+  EXPERIMENT_TITLES: {
+    severity: "major",
+    summary: "Many products are titled like A/B tests (VIZ V…) instead of a name a shopper would say.",
+    fix: "Keep experiment rows out of the Online Store. One shopper-facing title for Brooks Ghost 18. VIZ variants belong in an unpublished draft or a tag, not the product title.",
   },
   SIZE_OPTION_MISSING: {
     severity: "major",

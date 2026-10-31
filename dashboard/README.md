@@ -1,11 +1,9 @@
 # Dashboard
 
-Not scaffolded yet. Build this in the first hour so the actors have a place to show up.
+Next.js app on port **43123**.
 
-- Next.js, TypeScript, Tailwind, shadcn/ui.
-- Dev server on port **43123** (`next dev -p 43123`).
-- Do not put `TERSE_API_KEY`, the Relay workspace key, or shopper agent tokens in client code.
-- The browser gets a Terse WebSocket grant from a route handler (`actors.Shopper.prepareWebsocket`, `actors.StoreReport.prepareWebsocket`).
-- The browser gets Relay events from a route that holds `RELAY_OBSERVER_TOKEN` and streams `message.created`. The observer token is read-only. Never send the workspace key to the browser.
+```sh
+bun run dashboard
+```
 
-Screens are specified in [PLAN.md](../PLAN.md).
+Open http://127.0.0.1:43123. **Run recorded store** needs no API keys and no storefront password. **Run live store** reads `SHOP_URL` and `SHOP_STOREFRONT_PASSWORD` on the server. The password is never sent to the browser.

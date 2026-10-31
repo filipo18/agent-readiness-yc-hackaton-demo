@@ -18,9 +18,9 @@ export interface PersonaSpec {
 export const PERSONAS: Record<PersonaId, PersonaSpec> = {
   bargain: {
     id: "bargain",
-    label: "Cheapest blue hoodie",
-    goal: "Find the cheapest hoodie that is blue in the text, and add it to the cart.",
-    needsColor: true,
+    label: "Cheapest Ghost 18",
+    goal: "Add the cheapest Brooks Men's Ghost 18. Skip A/B titles that start with VIZ.",
+    needsColor: false,
     needsSize: false,
     needsEta: false,
     needsReturns: false,
@@ -28,8 +28,8 @@ export const PERSONAS: Record<PersonaId, PersonaSpec> = {
   },
   gift: {
     id: "gift",
-    label: "Gift by Friday",
-    goal: "Find a giftable in-stock product and confirm it can arrive within 5 days.",
+    label: "Ghost by Friday",
+    goal: "Gift a pair of Brooks Ghost 18 and confirm they can arrive within 5 days.",
     needsColor: false,
     needsSize: false,
     needsEta: true,
@@ -38,8 +38,8 @@ export const PERSONAS: Record<PersonaId, PersonaSpec> = {
   },
   spec: {
     id: "spec",
-    label: "Exact size",
-    goal: "Add a hoodie in size M. Size must be a variant option, not a note in the description.",
+    label: "Ghost 18, size 10",
+    goal: "Add Brooks Men's Ghost 18 in men's size 10. Size must be a variant option.",
     needsColor: false,
     needsSize: true,
     needsEta: false,
@@ -96,6 +96,11 @@ export interface StoreEvidence {
     pricedRatio: number
     /** Share of products with at least one image. 0 to 1. */
     imagedRatio: number
+    /**
+     * Share of titles that look like experiment rows (`VIZ …`).
+     * Missing means 0 so older fixtures keep their catalog score.
+     */
+    experimentRatio?: number
   }
   policies: {
     shippingText: string | null
@@ -148,7 +153,7 @@ export function blankEvidence(storeUrl: string): StoreEvidence {
       passwordWall: false,
       unreachable: false,
     },
-    catalog: { productCount: 0, pricedRatio: 0, imagedRatio: 0 },
+    catalog: { productCount: 0, pricedRatio: 0, imagedRatio: 0, experimentRatio: 0 },
     policies: {
       shippingText: null,
       refundText: null,

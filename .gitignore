@@ -6,6 +6,7 @@ node_modules
 .durable-actors
 dist
 .next
+dashboard/.next
 *.tsbuildinfo
 orchestrator/src/generated
 .DS_Store

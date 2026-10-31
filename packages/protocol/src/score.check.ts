@@ -24,11 +24,9 @@ function assert(cond: boolean, message: string): void {
 assert(after.total > before.total, "fixing shipping copy should raise the store score")
 assert(beforeCodes.includes("SHIPPING_HIDDEN_UNTIL_CHECKOUT"), "before run hides shipping price")
 assert(beforeCodes.includes("SHIPPING_ETA_MISSING"), "before run hides delivery window")
-assert(beforeCodes.includes("COLOR_NOT_IN_TEXT"), "blue hoodie is not in text")
 assert(beforeCodes.includes("RETURNS_POLICY_MISSING"), "returns policy still missing")
 assert(!afterCodes.includes("SHIPPING_HIDDEN_UNTIL_CHECKOUT"), "after run discloses shipping price")
 assert(!afterCodes.includes("SHIPPING_ETA_MISSING"), "after run discloses delivery window")
-assert(afterCodes.includes("COLOR_NOT_IN_TEXT"), "color finding stays until that fix")
 assert(afterCodes.includes("RETURNS_POLICY_MISSING"), "returns finding stays until that fix")
 
 const giftBefore = before.missions.find((mission) => mission.persona === "gift")

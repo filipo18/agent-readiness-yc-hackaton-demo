@@ -4,7 +4,7 @@ Haunted Hacks, 31 Oct 2026, San Francisco. Hacking until 16:00 PT, then a live d
 
 Paste a store URL. Five shoppers with different jobs try to find a product and get to checkout without paying. Each shopper is a durable actor (its goal, steps, blockers, and cart survive restarts). They talk on Agent Relay. One report actor is the only writer of the score. The dashboard shows shoppers and Relay messages as they happen.
 
-The demo beat: run the test, show a score and three fixes, change the store's shipping policy, rerun, the score goes from **57 to 73** and the gift shopper goes from **70 to 100**. Those numbers are what `bun run score` prints for [fixtures/before](fixtures/before/evidence.json) and [fixtures/after](fixtures/after/evidence.json). The color finding and the missing returns policy stay open on purpose.
+The demo beat: run the recorded Ghost 18 catalog, show the score and the fixes, change the shipping policy, rerun. `bun run demo` goes from **56 to 72**, and the gift shopper goes from **70 to 100**. VIZ experiment titles and the missing returns policy stay open. `bun run score` is the older rubric fixture (57 to 73) and is not what the dashboard plays.
 
 ## What we verified
 
@@ -88,7 +88,7 @@ Use this order. Stop at the first one that works on **our** store, in the first 
 
 1. **Online Store Ajax (MVP).** No admin token.
    - `GET /products.json?limit=250&page=1`
-   - `GET /search/suggest.json?q=hoodie&resources[type]=product&resources[limit]=5`
+   - `GET /search/suggest.json?q=ghost&resources[type]=product&resources[limit]=8`
    - `GET /products/{handle}` for JSON-LD (`"@type":"Product"`)
    - `GET /robots.txt`
    - `GET /policies/shipping-policy` and `/policies/refund-policy` (strip tags; do not trust a screenshot)
@@ -172,7 +172,7 @@ The orchestrator is a normal Bun process, not an actor. It owns the Relay WebSoc
 | `actors` `StoreReport` | A | Merges mission evidence and rescores. Already calls `scoreStore`. |
 | `orchestrator` | B | Creates the workspace, channels, action, observer token. |
 | `dashboard` | B | Next.js. Not scaffolded. |
-| Test store | C | Shopify connector. Defects below. Disable the password page. |
+| Test store | Filip | `https://aiconvertit-demo.myshopify.com`. Password stays on. Unlock with `SHOP_STOREFRONT_PASSWORD`. |
 
 If there are two people, C's store work sits with B until noon, then with A.
 
@@ -234,8 +234,8 @@ Group DM: not in the MVP.
 `#floor` text, plus `idempotencyKey`:
 
 ```text
-bargain: no blue hoodie in titles or options. Color is only in the photo. Stopping.
-gift: shipping policy says "We ship worldwide." No price, no day count.
+bargain: Skip 23 titles that start with VIZ. Those are A/B rows.
+gift: Shipping policy: "We ship worldwide." No price, no day count.
 ```
 
 `#findings` text is JSON:
@@ -269,10 +269,10 @@ All five share `Shopper`. The goal config is `PERSONAS` in [packages/protocol/sr
 
 | Id | Job | Done when |
 | --- | --- | --- |
-| `bargain` | Cheapest hoodie that is blue **in text** | Color is in the title, tags, or a Color option, and `cart/add.js` accepts that variant |
-| `gift` | Giftable in-stock item here within 5 days | Shipping policy states a price or "free" **and** a day window |
-| `spec` | Hoodie in size M | A `Size` option contains `M`, then cart add |
-| `impatient` | Any in-stock item in ≤ 4 steps | Cart add and `steps <= 4` |
+| `bargain` | Cheapest real Ghost 18, skip VIZ titles | Carts the cheapest non-VIZ Ghost 18 |
+| `gift` | Ghost 18 as a gift, here within 5 days | Shipping policy states a price or "free" **and** a day window |
+| `spec` | Ghost 18 in men's size 10 | A Size option contains `10`, then cart add |
+| `impatient` | Any real shoe in ≤ 4 steps | VIZ rows push the path past 4 steps |
 | `returns` | Read the refund policy, buy only if it states a window in days | `refundWindowDays != null`. Otherwise abandon without carting |
 
 No OpenAI call is required to satisfy these. Use the model only when several variants tie, and for a one-sentence paraphrase under the deterministic fix. If the key fails, show `FIX_COPY` from [packages/protocol/src/findings.ts](packages/protocol/src/findings.ts).
@@ -302,35 +302,45 @@ Fixture result, already checked in:
 | | Store score | Gift mission | Findings cleared | Still open |
 | --- | --- | --- | --- | --- |
 | Before | 57 | 70 | | Shipping price, shipping ETA, color not in text, returns policy missing, no JSON-LD |
-| After one policy edit | 73 | 100 | Both shipping findings | Color, returns, JSON-LD |
+| After one policy edit | 73 | 100 | Both shipping findings | Returns, JSON-LD |
+
+The dashboard plays a different fixture: the recorded Ghost 18 catalog (`bun run demo`). That one moves **56 → 72**, gift **70 → 100**, and keeps the VIZ title finding.
 
 That is the demo. Do not "fix" color and returns in the same edit or there is nothing left to talk about.
 
 ## Test store
 
-Create it with the Shopify connector (new store preview, or a dev store, then products). It must be an **Online Store** with the password page off. First check:
+Live target: `https://aiconvertit-demo.myshopify.com` (`SHOP_URL`). About 24 products, including **Brooks Men's Ghost 18 Running Shoes** and many **VIZ V…** A/B rows. The storefront password cannot be turned off. The password is not in this repo.
+
+Unlock, then keep the cookies:
 
 ```sh
-curl -sI "https://YOURSTORE.myshopify.com/products.json?limit=1"
+# GET /password first (session cookie + authenticity token)
+curl -c /tmp/shop.ck -b /tmp/shop.ck -sS "https://aiconvertit-demo.myshopify.com/password" -o /tmp/pw.html
+# POST form_type=storefront_password, utf8=✓, password=$SHOP_STOREFRONT_PASSWORD
+# Expect 302. Then:
+curl -c /tmp/shop.ck -b /tmp/shop.ck -sS "https://aiconvertit-demo.myshopify.com/products.json?limit=5"
 ```
 
-Seed:
+The shop client does that itself when `SHOP_STOREFRONT_PASSWORD` is set. Without it, live mode stops and says so. `SHOP_MODE=fixture` does not call the store.
 
-- A hoodie titled **"Pullover Hoodie"**. Size option S/M/L. No Color option. The word blue is not in the title, tags, or body. Photo can be blue. This fails `bargain`.
-- A simple giftable product with a price and an image. This is what `gift` can cart.
-- Shipping policy text exactly: `We ship worldwide.`
-- Refund policy unpublished or empty.
-- Leave Product JSON-LD to the theme default. If the theme emits it, the fixture's missing-JSON-LD finding will not appear on the live store. That is fine. Do not spend time stripping JSON-LD.
+Personas on this catalog:
 
-Live fix, during the demo, in the Shopify admin (or the connector): replace the shipping policy with:
+- **bargain** buys the cheapest real Ghost 18 and skips VIZ titles.
+- **spec** wants Ghost 18 in men's size 10 as a variant.
+- **gift** will not promise Friday unless the shipping policy states a price and a day count.
+- **impatient** has to wade through VIZ rows, so the path is longer than four steps.
+- **returns** will not cart shoes unless the refund policy states a window in days.
+
+The recorded fixture is 1 Ghost 18 (sizes 8–12) plus 23 `VIZ Vn` rows, vague shipping copy, and no refund policy. The shipping-policy edit is still the on-stage fix. VIZ titles and the missing returns window stay open.
+
+Live fix, in the Shopify admin: replace the shipping policy with:
 
 ```text
 Flat rate $6. Free shipping over $75. Arrives in 3–5 business days.
 ```
 
-Rerun. Shipping findings clear. Gift card hits 100. Returns and the blue hoodie stay.
-
-Cache every live response to `fixtures/live/` as you go, so a 429 during judging still replays.
+Rerun. Shipping findings clear. The gift mission rises. VIZ titles and returns stay.
 
 ## Stack
 
@@ -362,53 +372,31 @@ Show `state` and `state_update` from Terse. Ignore nothing else on the socket; a
 
 ## Timeline
 
-All times PT. 11:15 start, 16:00 stop. Freeze features at 15:40.
+Solo. All times PT. The fixture path (shop loop, local `#floor` / `#findings`, dashboard on port 43123) is the rehearsal and does not need keys. Freeze at 15:40.
 
-### 11:15–12:00 — prove the two APIs and the store
+### Done by noon
 
-- **A:** `bun install`, `terse actor dev`, call `StoreReport.open` from a scratch script using the generated client. Confirm `submitMission` moves the emittable score.
-- **B:** `bun run orchestrator`. Save the printed workspace key and observer token. Post one `#floor` message from `bargain` and see `message.created`. If the default host fails, set `RELAY_BASE_URL` to `https://armadillo.agentrelay.com` and then to a local `@relaycast/engine`.
-- **C:** Create the Shopify store, disable the password, add the hoodie and the gift, set the bad shipping policy. `curl` `/products.json`. If 404, tell A immediately.
+Plan, rubric, shop client with the password unlock, five Ghost 18 personas, fixture run, dashboard.
 
-Exit: a terminal shows a report actor score, a Relay message, and a 200 from `/products.json` (or a written decision to use GraphQL).
+### 12:00–13:00 — one live pass
 
-### 12:00–13:15 — one shopper, end to end, fixture first
+Copy `SHOP_STOREFRONT_PASSWORD` into `.env`. `SHOP_MODE=live`. Confirm `/products.json` returns the Ghost 18 and the VIZ rows after unlock. Run the dashboard's **Run live store** once. If size options are not literally `10`, adjust `SPEC_SIZE` matching in `shop/src/catalog.ts` to the real option text. Do not debug Relay or Terse deploy in this hour.
 
-- **A:** Implement `Shopper.shop` for `bargain` and `gift` against `auditStorefront` + `addToCart`. Persist steps by reassignment. On fixture mode, skip HTTP and load `fixtures/before/evidence.json`.
-- **B:** Scaffold Next.js on 43123. One page that renders a hardcoded `StoreScore` and a hardcoded transcript. Then swap the score for the report actor socket.
-- **C:** Record `/products.json`, both policy pages, and one `cart/add.js` response into `fixtures/live/`.
+### 13:00–14:15 — make the live findings true
 
-Exit: fixture run shows 57, gift and bargain cards, at least one real `#floor` line.
+Read the real shipping policy, refund policy, and a Ghost variant. If the theme already states a delivery window, the shipping finding will not fire. Pick the defect that is actually there (VIZ titles are the likely one) and make that the on-stage edit. Keep one defect unfixed so the rerun is not a perfect score.
 
-### 13:15–14:30 — live store and the other shoppers
+### 14:15–15:15 — the rerun, then keys if it is boring
 
-- **A:** `spec`, `impatient`, `returns`. They are branches in `shop()`, not new classes. Wire `finding.report` (message or invoke, not both).
-- **B:** Transcript column from the observer stream. Category bars. Empty, running, and error states. Mobile stack.
-- **C:** Run the live store once. Diff findings against the fixture. Adjust the seed (usually: theme already has JSON-LD, or the shipping policy page includes the word "free" in a footer).
+Edit the shipping policy (or the one real defect). Rerun live. Score moves. Then, only if that is solid: set `OPENAI_API_KEY` and confirm live shoppers still cannot change the score with a hallucination. Set `RELAY_WORKSPACE_KEY` if you want the transcript badge to say Agent Relay. `terse actor dev` is optional. The dashboard already runs the same `shopPersona` and `ReportJournal` the actor calls.
 
-Exit: live run produces the shipping findings and the color finding. Cart add works for the gift product.
+### 15:15–15:40 — one stretch, or nothing
 
-### 14:30–15:15 — the rerun
-
-- **A + C:** Edit the shipping policy. Rerun. Confirm the score rises and the two shipping codes disappear. Save the after responses as a second fixture if live differs from `fixtures/after`.
-- **B:** A "Run again" button that mints a new `runId`. Do not reuse actor ids.
-- Anyone ahead: OpenAI paraphrase under each fix, with the deterministic sentence still visible.
-
-Exit: both runs visible, or the fixture toggle can play both if the store blips.
-
-### 15:15–15:40 — only if the rerun is boringly reliable
-
-Pick at most one:
-
-- Supabase insert on `finalize`, and a tiny "past audits" list.
-- Superserve desktop for a single checkout screenshot and `getStreamUrl` in the right column.
-- `terse deploy` so the dashboard can use a public actor URL. Local is acceptable for an in-person demo.
+Supabase insert on finalize, or a Superserve screenshot of checkout. Not both. Not Freestyle.
 
 ### 15:40–16:00 — freeze
 
-- Rehearse the script below twice, out loud, on the machine that will be on stage.
-- One terminal: `terse actor dev`. One: Next.js. `.env` loaded. Store admin tab open to the shipping policy.
-- Close extra Chrome profiles. Disable sleep.
+Rehearse twice on the demo machine. `.env` has the storefront password. Admin tab open to the policy you will edit. Dashboard on port 43123. If live Shopify fails on stage, use **Run recorded store** then **Run after shipping fix**.
 
 ## MVP vs stretch
 
@@ -433,7 +421,7 @@ Pick at most one:
 | `createWorkspace` hits the wrong host | Try default, then `https://armadillo.agentrelay.com`, then `@relaycast/engine` on 8787. The message shapes stay the same. |
 | Terse login or deploy fails | Stay on `terse actor dev`. Judges are in the room. |
 | Actor sandbox cannot reach Relay | Orchestrator posts the `#floor` lines on the shopper's behalf using that agent's token. The actor still holds the cart and the steps. |
-| `/products.json` 404s or the store is password-locked | Password off is a setup task, not a finding we want on stage. If the feed is really gone, Storefront GraphQL. If the store is not ready, `SHOP_MODE=fixture`. |
+| Dev store password | `SHOP_STOREFRONT_PASSWORD` unlocks it (GET `/password`, POST the form, keep cookies). Missing or wrong password stops live mode. Fixture mode does not need it. |
 | 429 from Shopify | Cache the first successful responses and replay them. One shopper fetches the catalog; the others read the actor or a file. Do not fan out five full crawls. |
 | Checkout bot wall | The category is only 10 points. Cart add is the buy. Record `CHECKOUT_BOT_WALL` and move on. |
 | LLM hangs or invents a score | Score function never calls a model. 12s timeout on Shopify, 20s on the model, then use `FIX_COPY`. |
@@ -451,10 +439,10 @@ Have the admin shipping-policy page open in another tab before you walk up. Acto
 1. **0:00** "Stores are about to get shopped by agents. Most of them fail in ways a human theme never shows. This runs five shoppers against the store and writes the fixes."
 2. **0:15** Paste the store URL. Hit Run. Point at cards waking: bargain, gift, spec, impatient, returns. "Each one is a durable actor. That card is its persisted state."
 3. **0:35** Point at the transcript. "They're on Agent Relay. Gift just said shipping is 'we ship worldwide' — no price, no day count. Bargain can't see blue unless it's in the title or a Color option."
-4. **1:05** Score lands. "57. The number is deterministic. The model does not grade the store." Read three fixes: disclose shipping before checkout, put color in text, publish a returns window.
+4. **1:05** Score lands. "56. The number is deterministic. The model does not grade the store." Read three fixes: disclose shipping before checkout, stop publishing VIZ experiment titles, publish a returns window.
 5. **1:25** Switch to Shopify admin. Replace the shipping policy with the flat-rate sentence. Say what you are typing.
 6. **1:45** Run again. New run id. "Same actors pattern, fresh ids, so the first run is still there."
-7. **2:10** Score 73. Gift 100. Shipping findings gone. "Returns and the blue hoodie are still broken. That's the next edit, not a new audit product."
+7. **2:10** Score 72. Gift 100. Shipping findings gone. "The VIZ titles and the missing returns window are still there. That's the next edit."
 8. **2:25** Stop. One sentence from the prize lines below. Do not open the code unless a judge asks.
 
 If live Shopify fails while you are on stage: toggle Fixture, say "this is the recorded store, same rubric," and still do before → after. Do not debug on stage.

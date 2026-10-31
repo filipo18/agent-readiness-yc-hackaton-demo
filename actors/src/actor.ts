@@ -1,31 +1,23 @@
 import { Actor, Compute, Emittable, Interleave, Persisted, type ActorSocket } from "terse-sdk/actor"
 import {
   PERSONAS,
-  scoreStore,
   blankEvidence,
-  type Finding,
+  scoreMission,
+  viewFromEvidence,
   type MissionEvidence,
   type PersonaId,
+  type ReportView,
+  type ShopperView,
   type StoreEvidence,
-  type StoreScore,
 } from "@readiness/protocol"
-import { addToCart, auditStorefront, hasOptionValue, mentions, textOf } from "@readiness/shop"
+import { loadSnapshot, shopPersona, shopUrlFromEnv } from "@readiness/shop"
 
 type Watcher = { watcher: string }
 type Incoming = { type: "ping" }
 type Outgoing = { type: "log"; line: string }
 type Socket = ActorSocket<Watcher, Outgoing>
 
-export interface ShopperView {
-  persona: PersonaId
-  status: "idle" | "running" | "blocked" | "done" | "error"
-  goal: string
-  step: string
-  stepsDone: number
-  cartVariantId: number | null
-  missionScore: number | null
-  blockerCodes: string[]
-}
+export type { ShopperView }
 
 export interface AssignInput {
   runId: string
@@ -80,25 +72,43 @@ export class Shopper extends Actor<Watcher, Incoming, Outgoing> {
   }
 
   /**
-   * Fill this in hour 2. Intended body:
-   * 1. Set status running, reassign `this.view`, set `this.alarm` 90s out.
-   * 2. `auditStorefront(this.storeUrl)` once per run (the orchestrator may pass products in instead).
-   * 3. Pick a variant with `textOf` / `mentions` / `hasOptionValue` / `addToCart`.
-   * 4. Post a line to Agent Relay `#floor` with the agent token (HTTP or SDK).
-   * 5. Invoke `finding.report` for each blocker. Do not write the store score here.
-   * 6. Return `MissionEvidence` to the caller so it can `StoreReport.submitMission`.
-   * Reset the alarm at each step. `onAlarm` marks a stall if this is still running.
+   * Shops one persona. The caller posts Relay lines and submits the mission
+   * to StoreReport. This method does not write the shared score.
    */
   @Interleave
   async shop(): Promise<MissionEvidence> {
     void this.relayToken
-    void auditStorefront
-    void addToCart
-    void textOf
-    void mentions
-    void hasOptionValue
-    this.view = { ...this.view, status: "error", step: "shop() is not implemented yet" }
-    throw new Error("Implement Shopper.shop. See the comment on this method and PLAN.md.")
+    this.view = { ...this.view, status: "running", step: "Opening the store" }
+    this.alarm.set(Date.now() + 90_000)
+    const mode = process.env.SHOP_MODE === "live" ? "live" : "fixture"
+    const fixture = process.env.SHOP_FIXTURE === "after" ? "after" : "before"
+    const snapshot = await loadSnapshot({
+      mode,
+      fixture,
+      storeUrl: this.storeUrl || shopUrlFromEnv(),
+    })
+    const outcome = await shopPersona({
+      persona: this.view.persona,
+      snapshot,
+      liveCart: mode === "live",
+      useModel: mode === "live" && Boolean(process.env.OPENAI_API_KEY?.trim()),
+    })
+    for (const line of outcome.steps) {
+      this.noteStep(line)
+      this.alarm.set(Date.now() + 90_000)
+    }
+    const missionScore = scoreMission(this.view.persona, outcome.mission, snapshot.evidence).score
+    this.view = {
+      ...this.view,
+      status: outcome.mission.abandoned ? "blocked" : "done",
+      step: outcome.steps.at(-1) ?? "Finished",
+      stepsDone: outcome.steps.length,
+      cartVariantId: outcome.cartVariantId,
+      missionScore,
+      blockerCodes: outcome.blockerCodes,
+    }
+    this.alarm.delete()
+    return outcome.mission
   }
 
   async onAlarm(): Promise<void> {
@@ -122,16 +132,6 @@ export class Shopper extends Actor<Watcher, Incoming, Outgoing> {
   }
 }
 
-export interface ReportView {
-  runId: string
-  storeUrl: string
-  total: number
-  status: "collecting" | "final"
-  findings: Finding[]
-  categories: StoreScore["categories"]
-  missions: StoreScore["missions"]
-}
-
 /**
  * Single writer for the store score. No `@Interleave`: shoppers call
  * `submitMission` and the mailbox runs those writes one at a time.
@@ -151,16 +151,7 @@ export class StoreReport extends Actor<Watcher, Incoming, Outgoing> {
 
   async open(runId: string, storeUrl: string, storefront: Omit<StoreEvidence, "missions" | "storeUrl">): Promise<ReportView> {
     this.evidence = { ...storefront, storeUrl, missions: [] }
-    const scored = scoreStore(this.evidence)
-    this.report = {
-      runId,
-      storeUrl,
-      total: scored.total,
-      status: "collecting",
-      findings: scored.findings,
-      categories: scored.categories,
-      missions: scored.missions,
-    }
+    this.report = viewFromEvidence(runId, storeUrl, this.evidence, "collecting")
     return this.report
   }
 
@@ -175,16 +166,8 @@ export class StoreReport extends Actor<Watcher, Incoming, Outgoing> {
   }
 
   private publish(status: ReportView["status"]): ReportView {
-    const scored = scoreStore(this.evidence)
-    this.report = {
-      ...this.report,
-      total: scored.total,
-      status,
-      findings: scored.findings,
-      categories: scored.categories,
-      missions: scored.missions,
-    }
-    this.broadcast({ type: "log", line: `score ${scored.total}` })
+    this.report = viewFromEvidence(this.report.runId, this.report.storeUrl, this.evidence, status)
+    this.broadcast({ type: "log", line: `score ${this.report.total}` })
     return this.report
   }
 }

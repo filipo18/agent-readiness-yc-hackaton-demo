@@ -3,12 +3,16 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": "./src/engine.ts"
+  },
   "scripts": {
     "start": "bun src/main.ts"
   },
   "dependencies": {
     "@agent-relay/sdk": "^15.0.1",
     "@readiness/protocol": "workspace:*",
+    "@readiness/shop": "workspace:*",
     "zod": "^3.25.76"
   }
 }

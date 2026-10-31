@@ -2,7 +2,7 @@
   "name": "agent-readiness",
   "private": true,
   "type": "module",
-  "workspaces": ["packages/*", "actors", "shop", "orchestrator"],
+  "workspaces": ["packages/*", "actors", "shop", "orchestrator", "dashboard"],
   "devDependencies": {
     "bun-types": "^1.4.4",
     "typescript": "^5.9.3"
@@ -11,6 +11,8 @@
     "score": "bun packages/protocol/src/score.check.ts",
     "shop:check": "bun shop/src/parse.check.ts",
     "typecheck": "tsc --noEmit -p packages/protocol/tsconfig.json && tsc --noEmit -p shop/tsconfig.json && tsc --noEmit -p actors/tsconfig.json && tsc --noEmit -p orchestrator/tsconfig.json",
+    "demo": "bun orchestrator/src/demo.ts",
+    "dashboard": "bun run --cwd dashboard dev",
     "actors": "bun run --cwd actors dev",
     "orchestrator": "bun run --cwd orchestrator start"
   }

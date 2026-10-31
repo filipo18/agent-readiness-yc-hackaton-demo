@@ -1,4 +1,7 @@
 import { blankEvidence, type StoreEvidence } from "@readiness/protocol"
+import { experimentRatio } from "./catalog.ts"
+import { shopUrlFromEnv, storefrontPasswordFromEnv } from "./env.ts"
+import { passwordUnlockSucceeded, scrapeAuthenticityToken, storefrontPasswordBody } from "./password.ts"
 
 /** Variant row from Shopify's public `/products.json` feed. */
 export interface ShopifyVariant {
@@ -90,12 +93,12 @@ export function parseProductsJson(body: unknown): ShopifyProduct[] {
   return Array.isArray(products) ? (products as ShopifyProduct[]) : []
 }
 
-class CookieJar {
+export class CookieJar {
   private readonly pairs = new Map<string, string>()
 
   absorb(response: Response): void {
-    const getter = (response.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie
-    const lines = getter ? getter.call(response.headers) : []
+    const extended = response.headers as Headers & { getSetCookie?: () => string[] }
+    const lines = extended.getSetCookie?.call(response.headers) ?? splitSetCookie(response.headers.get("set-cookie"))
     for (const line of lines) {
       const pair = line.split(";")[0] ?? ""
       const eq = pair.indexOf("=")
@@ -108,6 +111,11 @@ class CookieJar {
     if (this.pairs.size === 0) return undefined
     return [...this.pairs.entries()].map(([name, value]) => `${name}=${value}`).join("; ")
   }
+}
+
+function splitSetCookie(header: string | null): string[] {
+  if (!header) return []
+  return header.split(/,(?=\s*[^;,=\s]+=)/)
 }
 
 async function getText(url: string, jar: CookieJar, timeoutMs = 12_000): Promise<{ response: Response; text: string }> {
@@ -127,6 +135,38 @@ function looksLikePasswordWall(finalUrl: string, body: string): boolean {
   return url.includes("/password") || text.includes("enter using password") || text.includes("opening soon")
 }
 
+/**
+ * GET /password, then POST the storefront password form. Keeps every Set-Cookie,
+ * including the one on the 302. Does not log the password.
+ */
+export async function unlockStorefront(origin: string, jar: CookieJar, password: string): Promise<boolean> {
+  const page = await getText(`${origin}/password`, jar)
+  const token = scrapeAuthenticityToken(page.text)
+  const response = await fetch(`${origin}/password`, {
+    method: "POST",
+    redirect: "manual",
+    headers: {
+      accept: "text/html,application/xhtml+xml",
+      "content-type": "application/x-www-form-urlencoded",
+      origin,
+      referer: `${origin}/password`,
+      "user-agent": JSON_HEADERS["user-agent"],
+      ...(jar.header() ? { cookie: jar.header()! } : {}),
+    },
+    body: storefrontPasswordBody(password, token),
+    signal: AbortSignal.timeout(12_000),
+  })
+  jar.absorb(response)
+  const body = await response.text()
+  return passwordUnlockSucceeded(response.status, response.headers.get("location"), body)
+}
+
+async function ensureUnlocked(origin: string, jar: CookieJar, password: string | undefined): Promise<"open" | "unlocked" | "blocked"> {
+  if (!password) return "open"
+  const ok = await unlockStorefront(origin, jar, password)
+  return ok ? "unlocked" : "blocked"
+}
+
 function looksLikeBotWall(body: string): boolean {
   const text = body.toLowerCase()
   return text.includes("captcha") || text.includes("verify you are human") || text.includes("access denied")
@@ -138,23 +178,32 @@ function looksLikeBotWall(body: string): boolean {
  * Online Store (probed `https://www.kyliecosmetics.com/products.json`).
  * `*.mock.shop` catalogs do not serve this route; they are Storefront GraphQL only.
  */
-export async function auditStorefront(storeUrl: string): Promise<StorefrontSnapshot> {
+export async function auditStorefront(storeUrl: string = shopUrlFromEnv(), password: string | undefined = storefrontPasswordFromEnv()): Promise<StorefrontSnapshot> {
   const origin = originOf(storeUrl)
   const jar = new CookieJar()
   const evidence = blankEvidence(origin)
 
   let products: ShopifyProduct[] = []
   try {
-    const first = await getText(`${origin}/products.json?limit=250&page=1`, jar)
-    if (looksLikePasswordWall(first.response.url, first.text)) {
+    const gate = await ensureUnlocked(origin, jar, password)
+    if (gate === "blocked") {
       evidence.http.passwordWall = true
       return { origin, products, evidence }
     }
-    if (!first.response.ok) {
-      evidence.http.productsJsonOk = false
-    } else {
-      products = parseProductsJson(JSON.parse(first.text) as unknown)
+    for (let page = 1; page <= 4; page += 1) {
+      const result = await getText(`${origin}/products.json?limit=250&page=${page}`, jar)
+      if (looksLikePasswordWall(result.response.url, result.text)) {
+        evidence.http.passwordWall = true
+        return { origin, products, evidence }
+      }
+      if (!result.response.ok) {
+        evidence.http.productsJsonOk = false
+        break
+      }
+      const batch = parseProductsJson(JSON.parse(result.text) as unknown)
+      products = [...products, ...batch]
       evidence.http.productsJsonOk = products.length > 0
+      if (batch.length < 250) break
     }
   } catch {
     evidence.http.unreachable = true
@@ -169,11 +218,12 @@ export async function auditStorefront(storeUrl: string): Promise<StorefrontSnaps
     const imaged = products.filter((product) => product.images.length > 0).length
     evidence.catalog.pricedRatio = priced / products.length
     evidence.catalog.imagedRatio = imaged / products.length
+    evidence.catalog.experimentRatio = experimentRatio(products)
   }
 
   try {
     const search = await getText(
-      `${origin}/search/suggest.json?q=hoodie&resources%5Btype%5D=product&resources%5Blimit%5D=5`,
+      `${origin}/search/suggest.json?q=ghost&resources%5Btype%5D=product&resources%5Blimit%5D=8`,
       jar,
     )
     evidence.http.searchOk = search.response.ok && search.text.includes("products")
@@ -243,8 +293,12 @@ async function readPolicy(origin: string, handle: string, jar: CookieJar): Promi
  * Ajax cart add. Call this from a shopper after it has chosen a variant.
  * Keeps its own cookie jar for one shopper session.
  */
-export async function addToCart(origin: string, variantId: number, quantity = 1): Promise<{ ok: boolean; status: number; body: string }> {
+export async function addToCart(origin: string, variantId: number, quantity = 1, password: string | undefined = storefrontPasswordFromEnv()): Promise<{ ok: boolean; status: number; body: string }> {
   const jar = new CookieJar()
+  if (password) {
+    const opened = await unlockStorefront(origin, jar, password)
+    if (!opened) return { ok: false, status: 401, body: "storefront password was rejected" }
+  }
   await getText(`${origin}/cart.js`, jar).catch(() => undefined)
   const cookie = jar.header()
   const response = await fetch(`${origin}/cart/add.js`, {
