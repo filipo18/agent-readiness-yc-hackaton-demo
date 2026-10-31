@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs"
-import { scoreStore } from "./score.ts"
-import type { StoreEvidence } from "./evidence.ts"
+import { scoreStore } from "./score.js"
+import type { StoreEvidence } from "./evidence.js"
 
 function load(name: string): StoreEvidence {
   const url = new URL(`../../../fixtures/${name}/evidence.json`, import.meta.url)

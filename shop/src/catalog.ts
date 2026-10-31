@@ -1,4 +1,4 @@
-import type { ShopifyProduct, ShopifyVariant } from "./shopify.ts"
+import type { ShopifyProduct, ShopifyVariant } from "./shopify.js"
 
 export const SPEC_SIZE = "10"
 

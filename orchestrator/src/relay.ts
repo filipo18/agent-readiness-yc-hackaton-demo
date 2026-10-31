@@ -4,7 +4,20 @@ import { z } from "zod"
 import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs"
 
 // Agent tokens per workspace, so reruns reconnect instead of hitting name_conflict.
-const AGENT_FILE = new URL("../../.relay-agents.json", import.meta.url).pathname
+const AGENT_FILE = process.env.RELAY_AGENT_FILE ?? findRepoFile(".relay-agents.json")
+
+/** Walk up from cwd to the workspace root (bundlers rewrite import.meta.url). */
+function findRepoFile(name: string): string {
+  const { existsSync } = require("node:fs") as typeof import("node:fs")
+  const path = require("node:path") as typeof import("node:path")
+  let dir = process.cwd()
+  for (;;) {
+    if (existsSync(path.join(dir, "bun.lock")) || existsSync(path.join(dir, ".env.relay"))) return path.join(dir, name)
+    const up = path.dirname(dir)
+    if (up === dir) return path.join(process.cwd(), name)
+    dir = up
+  }
+}
 
 function quiet<T>(p: Promise<T>): Promise<T | undefined> {
   return p.catch(() => undefined)

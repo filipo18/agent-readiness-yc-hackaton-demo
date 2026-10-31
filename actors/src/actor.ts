@@ -28,7 +28,7 @@ export interface AssignInput {
 }
 
 /**
- * One shopper. The actor id is `${runId}:${persona}`.
+ * One shopper. The actor id is `${runId}.${persona}`.
  * `@Interleave` is required: LLM and HTTP awaits must not freeze the mailbox,
  * or the dashboard cannot read state mid-run.
  * Do not call `this.db.transaction` in this class. Any `@Interleave` method
@@ -94,7 +94,8 @@ export class Shopper extends Actor<Watcher, Incoming, Outgoing> {
       useModel: mode === "live" && Boolean(process.env.OPENAI_API_KEY?.trim()),
     })
     for (const line of outcome.steps) {
-      this.noteStep(line)
+      this.steps = [...this.steps, line]
+      this.view = { ...this.view, step: line, stepsDone: this.steps.length }
       this.alarm.set(Date.now() + 90_000)
     }
     const missionScore = scoreMission(this.view.persona, outcome.mission, snapshot.evidence).score
@@ -122,13 +123,18 @@ export class Shopper extends Actor<Watcher, Incoming, Outgoing> {
     this.broadcast({ type: "log", line: `${this.view.persona} stalled` })
   }
 
-  noteStep(line: string): void {
-    this.steps = [...this.steps, line]
-    this.view = { ...this.view, step: line, stepsDone: this.steps.length }
-  }
-
   async onConnect(socket: Socket): Promise<void> {
     socket.send({ type: "log", line: `${this.view.persona} ${this.view.status}` })
+  }
+
+  /** Full persisted state, for querying an actor after the run. */
+  async state(): Promise<{ runId: string; storeUrl: string; view: ShopperView; steps: string[] }> {
+    return { runId: this.runId, storeUrl: this.storeUrl, view: this.view, steps: this.steps }
+  }
+
+  /** Steps from the last shop() call, so the caller can stream them to Relay. */
+  async lastSteps(): Promise<string[]> {
+    return this.steps
   }
 }
 
@@ -158,15 +164,13 @@ export class StoreReport extends Actor<Watcher, Incoming, Outgoing> {
   async submitMission(mission: MissionEvidence): Promise<ReportView> {
     const missions = [...this.evidence.missions.filter((item) => item.persona !== mission.persona), mission]
     this.evidence = { ...this.evidence, missions }
-    return this.publish("collecting")
+    this.report = viewFromEvidence(this.report.runId, this.report.storeUrl, this.evidence, "collecting")
+    this.broadcast({ type: "log", line: `score ${this.report.total}` })
+    return this.report
   }
 
   async finalize(): Promise<ReportView> {
-    return this.publish("final")
-  }
-
-  private publish(status: ReportView["status"]): ReportView {
-    this.report = viewFromEvidence(this.report.runId, this.report.storeUrl, this.evidence, status)
+    this.report = viewFromEvidence(this.report.runId, this.report.storeUrl, this.evidence, "final")
     this.broadcast({ type: "log", line: `score ${this.report.total}` })
     return this.report
   }

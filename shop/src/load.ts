@@ -1,6 +1,6 @@
-import { auditStorefront, type StorefrontSnapshot } from "./shopify.ts"
-import { shopUrlFromEnv, storefrontPasswordFromEnv } from "./env.ts"
-import { fixtureSnapshot } from "./fixture.ts"
+import { auditStorefront, type StorefrontSnapshot } from "./shopify.js"
+import { shopUrlFromEnv, storefrontPasswordFromEnv } from "./env.js"
+import { fixtureSnapshot } from "./fixture.js"
 
 export async function loadSnapshot(input: {
   mode: "fixture" | "live"

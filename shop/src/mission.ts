@@ -1,7 +1,7 @@
 import { FIX_COPY, PERSONAS, type MissionEvidence, type PersonaId } from "@readiness/protocol"
-import { cheapestGhost, hasShoeSize, isExperimentTitle, SPEC_SIZE, variantForSize } from "./catalog.ts"
-import { askModel } from "./openai.ts"
-import { addToCart, type ShopifyProduct, type StorefrontSnapshot } from "./shopify.ts"
+import { cheapestGhost, hasShoeSize, isExperimentTitle, SPEC_SIZE, variantForSize } from "./catalog.js"
+import { askModel } from "./openai.js"
+import { addToCart, type ShopifyProduct, type StorefrontSnapshot } from "./shopify.js"
 
 export interface ShopAnnouncement {
   code: string

@@ -1,6 +1,6 @@
-import type { Finding } from "./findings.ts"
-import type { MissionEvidence, PersonaId, StoreEvidence, StoreScore } from "./evidence.ts"
-import { scoreStore } from "./score.ts"
+import type { Finding } from "./findings.js"
+import type { MissionEvidence, PersonaId, StoreEvidence, StoreScore } from "./evidence.js"
+import { scoreStore } from "./score.js"
 
 export interface ShopperView {
   persona: PersonaId

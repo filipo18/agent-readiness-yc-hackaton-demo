@@ -3,7 +3,8 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "scripts": { "build:types": "tsc src/index.ts --declaration --emitDeclarationOnly --outDir dist --module nodenext --moduleResolution nodenext --target es2022 --strict --skipLibCheck" },
   "exports": {
-    ".": "./src/index.ts"
+    ".": { "types": "./dist/index.d.ts", "default": "./src/index.ts" }
   }
 }

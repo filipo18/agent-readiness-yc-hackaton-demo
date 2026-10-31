@@ -1,4 +1,4 @@
-import { FIX_COPY, type Finding, type FindingCode } from "./findings.ts"
+import { FIX_COPY, type Finding, type FindingCode } from "./findings.js"
 import {
   PERSONAS,
   type CategoryScore,
@@ -7,7 +7,7 @@ import {
   type PersonaId,
   type StoreEvidence,
   type StoreScore,
-} from "./evidence.ts"
+} from "./evidence.js"
 
 const WEIGHTS: Record<CategoryScore["id"], { label: string; weight: number }> = {
   discoverability: { label: "Discoverability", weight: 15 },

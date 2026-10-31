@@ -1,6 +1,6 @@
 import { blankEvidence } from "@readiness/protocol"
-import { isExperimentTitle } from "./catalog.ts"
-import { disclosesShippingEta, disclosesShippingPrice, originOf, type ShopifyProduct, type StorefrontSnapshot } from "./shopify.ts"
+import { isExperimentTitle } from "./catalog.js"
+import { disclosesShippingEta, disclosesShippingPrice, originOf, type ShopifyProduct, type StorefrontSnapshot } from "./shopify.js"
 
 const STORE_URL = "https://aiconvertit-demo.myshopify.com"
 

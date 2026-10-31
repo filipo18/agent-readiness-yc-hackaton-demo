@@ -7,6 +7,7 @@ import {
   type ReportView,
   type ShopperView,
 } from "@readiness/protocol"
+import { actorsEnabled, driveShoppers } from "./actors.ts"
 import { loadSnapshot, shopPersona, shopUrlFromEnv, storefrontPasswordFromEnv, type ShopAnnouncement } from "@readiness/shop"
 
 export interface RelayNote {
@@ -96,6 +97,10 @@ export async function* runAudit(request: RunRequest): AsyncGenerator<RunEvent> {
   }
 
   const runId = crypto.randomUUID().slice(0, 8)
+  if (request.mode === "live" && actorsEnabled()) {
+    yield* runViaActors(runId, storeUrl, snapshot, mirror, stepMs)
+    return
+  }
   const journal = new ReportJournal()
   const report = await journal.open(runId, snapshot.evidence)
   yield { type: "report", report }
@@ -232,4 +237,50 @@ async function connectMirror(): Promise<RelayMirror | null> {
     console.error("Agent Relay unavailable, keeping the local transcript.", error instanceof Error ? error.message : error)
     return null
   }
+}
+
+async function* runViaActors(
+  runId: string,
+  storeUrl: string,
+  snapshot: Awaited<ReturnType<typeof loadSnapshot>>,
+  mirror: RelayMirror | null,
+  stepMs: number,
+): AsyncGenerator<RunEvent> {
+  const { missions: _m, storeUrl: _s, ...storefront } = snapshot.evidence
+  yield* say(
+    note("floor", "coordinator", `Run ${runId}: ${PERSONA_IDS.length} Shopper actors on ${snapshot.origin}. StoreReport actor writes the score.`),
+    mirror,
+    stepMs,
+  )
+  let last: ReportView | null = null
+  try {
+    for await (const tick of driveShoppers(runId, storeUrl, storefront)) {
+      if (tick.kind === "report") {
+        last = tick.report
+        yield { type: "report", report: tick.report }
+        continue
+      }
+      if (tick.kind === "failed") {
+        yield { type: "shopper", view: { ...idleView(tick.persona), status: "blocked", step: `Actor failed: ${tick.message}` } }
+        continue
+      }
+      yield { type: "shopper", view: tick.view }
+      for (const line of tick.newSteps) yield* say(note("floor", tick.persona, line), mirror, stepMs)
+      if (tick.kind === "mission") {
+        yield { type: "report", report: tick.report }
+        for (const code of tick.view.blockerCodes) {
+          yield* say(note("findings", tick.persona, JSON.stringify({ runId, persona: tick.persona, code, actor: `Shopper/${runId}.${tick.persona}` })), mirror, stepMs)
+        }
+      }
+    }
+  } catch (error) {
+    yield { type: "error", message: `Actor runtime unavailable (set ACTORS=off to use the in-process engine): ${error instanceof Error ? error.message : error}` }
+    return
+  }
+  yield* say(note("floor", "coordinator", `Score ${last?.total ?? "?"} from StoreReport/${runId}. The rubric assigned it.`), mirror, stepMs)
+  if (mirror) {
+    const counts = await mirror.flush()
+    yield { type: "meta", relay: "agent-relay", storeUrl, posted: counts }
+  }
+  yield { type: "done" }
 }

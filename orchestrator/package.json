@@ -9,7 +9,8 @@
   "scripts": {
     "start": "bun src/main.ts",
     "live": "bun src/live.ts",
-    "readback": "bun src/readback.ts"
+    "readback": "bun src/readback.ts",
+    "query": "bun src/query.ts"
   },
   "dependencies": {
     "@agent-relay/sdk": "^15.0.1",

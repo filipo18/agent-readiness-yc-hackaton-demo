@@ -1,5 +1,5 @@
-import { passwordUnlockSucceeded, scrapeAuthenticityToken, storefrontPasswordBody } from "./password.ts"
-import { disclosesShippingEta, disclosesShippingPrice, parseProductsJson, refundWindowDays } from "./shopify.ts"
+import { passwordUnlockSucceeded, scrapeAuthenticityToken, storefrontPasswordBody } from "./password.js"
+import { disclosesShippingEta, disclosesShippingPrice, parseProductsJson, refundWindowDays } from "./shopify.js"
 
 const products = parseProductsJson({
   products: [

@@ -1,7 +1,7 @@
 import { blankEvidence, type StoreEvidence } from "@readiness/protocol"
-import { experimentRatio } from "./catalog.ts"
-import { shopUrlFromEnv, storefrontPasswordFromEnv } from "./env.ts"
-import { passwordUnlockSucceeded, scrapeAuthenticityToken, storefrontPasswordBody } from "./password.ts"
+import { experimentRatio } from "./catalog.js"
+import { shopUrlFromEnv, storefrontPasswordFromEnv } from "./env.js"
+import { passwordUnlockSucceeded, scrapeAuthenticityToken, storefrontPasswordBody } from "./password.js"
 
 /** Variant row from Shopify's public `/products.json` feed. */
 export interface ShopifyVariant {

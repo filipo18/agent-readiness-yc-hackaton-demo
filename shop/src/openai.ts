@@ -1,6 +1,6 @@
 import type { PersonaId } from "@readiness/protocol"
 import { PERSONAS } from "@readiness/protocol"
-import type { ShopifyProduct } from "./shopify.ts"
+import type { ShopifyProduct } from "./shopify.js"
 
 export interface ModelPick {
   handle: string | null
