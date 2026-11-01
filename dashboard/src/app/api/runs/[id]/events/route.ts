@@ -3,16 +3,25 @@ import { getSession } from "@/lib/sessions"
 export const dynamic = "force-dynamic"
 
 export function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+  let closed = false
+  let detach = () => {}
   const stream = new ReadableStream({
     async start(controller) {
       const { id } = await context.params
       const session = getSession(id)
       const encoder = new TextEncoder()
       const send = (data: unknown) => {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
+        if (closed) return
+        try {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
+        } catch {
+          closed = true
+          detach()
+        }
       }
       if (!session) {
         send({ type: "error", message: "That run does not exist." })
+        closed = true
         controller.close()
         return
       }
@@ -26,6 +35,7 @@ export function GET(_request: Request, context: { params: Promise<{ id: string }
       flush()
       if (session.done) {
         send({ type: "end" })
+        closed = true
         controller.close()
         return
       }
@@ -38,9 +48,20 @@ export function GET(_request: Request, context: { params: Promise<{ id: string }
             resolve()
           }
         }
+        detach = () => {
+          session.listeners.delete(listener)
+          resolve()
+        }
         session.listeners.add(listener)
       })
-      controller.close()
+      if (!closed) {
+        closed = true
+        try { controller.close() } catch {}
+      }
+    },
+    cancel() {
+      closed = true
+      detach()
     },
   })
   return new Response(stream, {
